@@ -6,7 +6,7 @@ use Test;
 
 BEGIN { plan tests => 20, todo => [ ] }
 
-use Tie::RangeHash '0.60';
+use Tie::RangeHash '0.71';
 ok(1);
 
 use warnings 'Tie::RangeHash';

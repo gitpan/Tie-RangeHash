@@ -5,5 +5,5 @@ RangeHash.pm
 README
 t/01-tie.t
 t/02-object.t
+t/09-bug-1887.t
 t/10-ordered.t
-

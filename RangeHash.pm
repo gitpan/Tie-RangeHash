@@ -7,13 +7,15 @@ use strict;
 use warnings::register __PACKAGE__;
 use Carp;
 
-our $VERSION   = '0.70';
+our $VERSION   = '0.72';
 our @ISA       = qw( );
 
-use integer;
+no integer;
 
 BEGIN
   {
+
+    use integer;
 
     # Define public constants
 
@@ -81,14 +83,13 @@ sub _split_bounds
   {
     my ($self, $key) = @_;
 
-    my ($lower_bound, $upper_bound, $extra_stuff);
+    my ($lower_bound, $upper_bound, $extra_stuff, $cmp);
 
     # Is it a string or is it an array reference? Handle appropriately.
 
     my $key_ref = ref($key);
 
     if (!$key_ref)
-      # ($key =~ $self->[SPLIT_REGEX])
       {
 	($lower_bound, $upper_bound, $extra_stuff) =
 	  split( $self->[SPLIT_REGEX], $key );
@@ -122,7 +123,9 @@ sub _split_bounds
 
     # Make sure $lower_bound <= $upper_bound
 
-    if (&{$self->[CMP_SUB]}($lower_bound, $upper_bound) > 0)
+    $cmp = $self->[CMP_SUB];
+
+    if (&{$cmp}($lower_bound, $upper_bound) > 0)
       {
 	warnings::warn "Lower and upper bounds reversed",
 	  if (warnings::enabled);
@@ -145,11 +148,10 @@ sub _new_node
 # be less than KEY_LOW, and KEY_LOW on NODE_RIGHT must be greater than
 # KEY_HIGH.
 #
-# COUNT_LEFT, COUNT_RIGHT are the count of children on the left and right
-# nodes respectively. We use these values for keeping the tree balanced.
-# (Without tree balancing, if we add too many nodes in sequential order we'll
-# get a stack overflow and recursion error.) See comments in _add_node()
-# for a description of the tree-balancing algorithm used.
+# COUNT_LEFT, COUNT_RIGHT are the count of children on the left and
+# right nodes respectively. We use these values for keeping the tree
+# balanced.  See comments in _add_node() for a description of the
+# tree-balancing algorithm used.
 #
 # VALUE is the node's value.
 
@@ -211,6 +213,8 @@ sub _add_node
 # simplifies adding and balancing the tree.
 
   {
+    # use integer;
+
     my ($self, $root, $node) = @_;
 
     unless ($node)
@@ -220,15 +224,17 @@ sub _add_node
 
     unless ($root) { return $node; }
 
-    if ( &{$self->[CMP_SUB]}($node->[KEY_HIGH],  $root->[KEY_LOW] ) < 0)
+    my $cmp = $self->[CMP_SUB];
+
+    if ( &{$cmp}($node->[KEY_HIGH],  $root->[KEY_LOW] ) < 0)
       {
 	$root->[NODE_LEFT] = $self->_add_node( $root->[NODE_LEFT], $node );
-	$root->[COUNT_LEFT]++;  # _count_left( $root );
+	$root->[COUNT_LEFT]++;
       }
-    elsif (&{$self->[CMP_SUB]}($node->[KEY_LOW], $root->[KEY_HIGH]) > 0)
+    elsif (&{$cmp}($node->[KEY_LOW], $root->[KEY_HIGH]) > 0)
       {
 	$root->[NODE_RIGHT] = $self->_add_node( $root->[NODE_RIGHT], $node );
-	$root->[COUNT_RIGHT]++; # _count_right( $root );
+	$root->[COUNT_RIGHT]++;
       }
     else
       {
@@ -270,7 +276,7 @@ sub _add_node
 
 	    _count_left( $root );
 	    _count_right( $left );
-	    
+
 	    return $left;
 	  }
 
@@ -291,8 +297,6 @@ sub _add_new_node
     );
   }
 
-
-
 sub _find_node_parent
 
 # Given a root node and lower and upper bounds, it returns a list with a
@@ -311,7 +315,15 @@ sub _find_node_parent
   {
     my ($self, $root, $parent, $lower_bound, $upper_bound) = @_;
 
+    # use integer;
+
     unless ($root) { return; }
+
+    # We're using a local variable to 'alias' $self->[CMP_SUB]. Now,
+    # if the compiler had a smart optimizer, this wouldn't be
+    # necessary....
+
+    my $cmp = $self->[CMP_SUB];
 
     # The tree search has been rewritten in v0.70 to be iterative
     # rather than recursive. This is *slightly* faster, but more
@@ -321,8 +333,8 @@ sub _find_node_parent
 
     while (($root) and (($lo_cmp<0) or ($hi_cmp>0)))
     {
-      $lo_cmp = &{$self->[CMP_SUB]}($upper_bound, $root->[KEY_LOW]);
-      $hi_cmp = &{$self->[CMP_SUB]}($lower_bound, $root->[KEY_HIGH]);
+      $lo_cmp = &{$cmp}($upper_bound, $root->[KEY_LOW]);
+      $hi_cmp = &{$cmp}($lower_bound, $root->[KEY_HIGH]);
 
       if ($lo_cmp<0)
 	{
@@ -340,10 +352,10 @@ sub _find_node_parent
 	  # $upper_bound for range overlaps is negligible compared to
 	  # the advantage of having a warning reported
 
-	  if ((&{$self->[CMP_SUB]}($lower_bound, $upper_bound))
+	  if ((&{$cmp}($lower_bound, $upper_bound))
 	      and (
-		   (&{$self->[CMP_SUB]}($lower_bound, $root->[KEY_LOW]) < 0)
-		   or (&{$self->[CMP_SUB]}($upper_bound, $root->[KEY_HIGH]) > 0)
+		   (&{$cmp}($lower_bound, $root->[KEY_LOW]) < 0)
+		   or (&{$cmp}($upper_bound, $root->[KEY_HIGH]) > 0)
 		  ) ) {
 	    warnings::warn
 		("Key range \`" . 
@@ -383,6 +395,8 @@ sub _process_args
 #   http://www.perlmonks.org/index.pl?displaytype=displaycode&node_id=43323
 
   {
+
+    # use integer;
 
     my $args    = shift;
     my $req     = shift;
@@ -484,7 +498,7 @@ sub new
     else
       {
 	if ($self->[CMP_TYPE] == TYPE_NUMBER)
-	  {
+	  {	    
 	    $self->[CMP_SUB] = sub { ($_[0] <=> $_[1]); };
 	  }
 	elsif ($self->[CMP_TYPE] == TYPE_STRING)
@@ -507,6 +521,8 @@ sub fetch
 
   {
     my ($self, $key) = @_;
+
+    # use integer;
 
     # We need to split the key in case FETCH is called with 'low,high'
     # instead of a single key. Why? Say you have code which does this:
@@ -601,8 +617,10 @@ sub remove
 
     unless ($node) { return; } # if node not found, nothing to delete
 
-    if ((&{$self->[CMP_SUB]}($lower_bound, $node->[KEY_LOW])) or
-	(&{$self->[CMP_SUB]}($upper_bound, $node->[KEY_HIGH])))
+    my $cmp = $self->[CMP_SUB];
+
+    if ((&{$cmp}($lower_bound, $node->[KEY_LOW])) or
+	(&{$cmp}($upper_bound, $node->[KEY_HIGH])))
       {
 	warnings::warn 
 	  ("Key range \`" .
@@ -616,7 +634,7 @@ sub remove
 
     if ($parent)
       {
-	if (&{$self->[CMP_SUB]}($parent->[KEY_HIGH], $node->[KEY_LOW])<0)
+	if (&{$cmp}($parent->[KEY_HIGH], $node->[KEY_LOW])<0)
 	  {
 
 	    $parent->[NODE_RIGHT] = $node->[NODE_RIGHT];
@@ -625,7 +643,7 @@ sub remove
 	      $self->_add_node($parent->[NODE_RIGHT], $node->[NODE_LEFT]),
 	        if ($node->[NODE_LEFT]);
 	      }
-	elsif (&{$self->[CMP_SUB]}($parent->[KEY_LOW],
+	elsif (&{$cmp}($parent->[KEY_LOW],
 				   $node->[KEY_HIGH])>0)
 	  {
 
@@ -854,10 +872,8 @@ searching the tree for nodes that where the key is within range.  I<This
 module has nothing to do with "range trees".>
 
 The binary-tree code is spontaneously written and has a very simple
-tree-banacing scheme. (It needs some kind of scheme since sorted data
-will produce a very lopsided tree which is no more efficient than an
-array; for large amounts of data it will recurse too deeply.) It
-appears to work, but has not been fully tested.
+tree-banacing scheme. It appears to work, but has not been fully
+tested.
 
 A future version of this module may use an improved binary-tree algorithm.
 Or it may use something else.
@@ -888,9 +904,17 @@ Robert Rothenberg <rrwo@cpan.org>
 
 =head2 Acknowledgements
 
+Charles Huff <charleshuff@decisionresearch.com> for suggestions and
+bug reports.
+
 Sam Tregar <sam@tregar.com> for optimization suggestions.
 
 Various Perl Monks <http://www.perlmonks.org> for advice and code snippets.
+
+=head2 Suggestions and Bug Reporting
+
+Feedback is always welcome.  Please use the CPAN Request Tracker at
+L<http://rt.cpan.org> to submit bug reports.
 
 =head1 LICENSE
 

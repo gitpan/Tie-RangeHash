@@ -1,5 +1,15 @@
 Revision history for Perl extension Tie::RangeHash.
 
+0.72 28 Dec 2002
+	- fixed bug with rt.cpan.org ticket no. 1887 (bug with decimal
+	  ranges) and added test case
+
+0.71 01 Aug 2002
+	- miscellaneous optimizations
+	- corrected tests to require current version
+	- removed references to recursion in POD and comments, since
+	  it's not necessarily relevant to all the functions
+
 0.70 11 Jul 2002
 	- _find_node_parent() changed to use iterative search rather than
           recursive search for minor speed improvement and big stack usage

@@ -6,11 +6,11 @@ use Test;
 
 BEGIN { plan tests => 6, todo => [ ] }
 
-use Tie::RangeHash '0.60';
+use Tie::RangeHash '0.71';
 ok(1);
 
 {
-  my $COUNT = 1000; # test 10,000 for serious benchmarking
+  my $COUNT = 20000; # test 10,000 for serious benchmarking
 
   my @nodes = ();
 
