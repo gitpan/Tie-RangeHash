@@ -1,0 +1,98 @@
+NAME
+    Tie::RangeHash - Implements "Range Hashes" in Perl
+
+SYNOPSIS
+      use Tie::RangeHash;
+
+      tie %hash, Tie::RangeHash;
+
+      $hash{'A,C'} = 1;
+      $hash{'D,F'} = 2;
+      $hash{'G,K'} = 3;
+
+      print $hash{'E'}; # outputs '2'
+
+DESCRIPTION
+    This module allows hashes to have key ranges based on lower and upper
+    bounds.
+
+    For instance, you could pass date ranges to the hash and then query it
+    with a specific date, like so:
+
+      $cost{'1999-12-15,2000-01-14'} = 150;
+      $cost{'2000-01-15,2000-02-14'} = 103;
+      $cost{'2000-02-15,2000-03-14'} =  97;
+
+    and then query the cost on a specific date:
+
+      $this_cost = $cost{'2000-02-08'};
+
+    (This example is actually where the idea for this module came from.)
+
+    Internally, the hash is actually a binary tree. Values are retrieved by
+    searching the tree for nodes that where the key is within range.
+
+OPTIONS
+    You can specify the following options when using the module:
+
+        tie %hash, 'Tie::RangeHash',
+          {
+            Separator => qr/,/,
+            Type => Tie::RangeHash::TYPE_NUMBER,
+            Comparison => \&my_cmp
+          };
+
+  Separator
+
+    The `Separator' specifies a regular expression used to split the lower
+    and upper bound keys. The default is a comma, but you can change it to
+    anything that suits your needs. To use two periods, set it to
+    `qr/\.\./'.
+
+  Type
+
+    The `Type' specifies the sorting type. The default is
+    `Tie::RangeHash::TYPE_STRING' but you can set it to
+    `Tie::RangeHash::TYPE_NUMBER' if the keys are numeric.
+
+    If `Comparison' is specified, the `Type' will be ignored.
+
+  Comparison
+
+    `Comparison' lets you specify your own comparison subroutine, if needed.
+    The routine takes two arguments and compares them in much the same way
+    `sort' is customized:
+
+        sub my_cmp {
+          my ($A, $B) = @_;
+          return ($A cmp $B);
+        }
+
+CAVEATS
+    The binary-tree code is spontaneously written and has a rudimentary
+    tree-banacing scheme. It appears to work, but has not been fully tested.
+
+    This module is incomplete... It needs the DELETE, FIRSTKEY, NEXTKEY,
+    EXISTS and DESTROY methods.
+
+    Duplicate and overlapping ranges are not supported. Once a range is
+    defined, it exists for the lifetime of the hash.
+
+FUTURE ENHANCEMENTS
+    Improved binary-tree or some other mechanism for searching ranges.
+
+    Allow the user to specify "filters" to process the keys for STORE and
+    FETCH (for example, checking if the key is a valid date, and converting
+    the string representation into a numerical epoch).
+
+    Flexible handling of overlapping ranges is a needed feature: the caller
+    should decide whether to adjust ranges on the fly or to die on an error.
+
+AUTHOR
+    Robert Rothenberg <rrwo@cpan.org>
+
+LICENSE
+    Copyright (c) 2000 Robert Rothenberg. All rights reserved. This program
+    is free software; you can redistribute it and/or modify it under the
+    same terms as Perl itself.
+
