@@ -1,7 +1,19 @@
-Revision history for Perl extension Tie::RangeHash.
+Revision history for Perl extension Tie::RangeHash.  (Note: significant
+changes marked with '*' may not be compatible with previous versions.)
 
-Significant changes marked with '*' may not be compatible with
-previous versions.
+1.01   Fri Dec 17 2004
+	- uses base
+	- added SIGNATURE
+	- updated to use Algorithm::SkipList
+	- uses Exporter
+	* List::SkipList v0.65 is required
+	* removed validate_key() methods from node types (for now)
+	- commented out Carp::Assert
+	- added reset method
+	- version conforms to proper Perl style
+	- added size method
+	- modified tests
+	- added stub for autosplit in Build.PL
 
 1.00_2 Fri Mar 19 2004
 	- added Build.PL to distribution

@@ -5,9 +5,9 @@ WriteMakefile
           'NAME' => 'Tie::RangeHash',
           'VERSION_FROM' => 'lib/Tie/RangeHash.pm',
           'PREREQ_PM' => {
-                           'Carp::Assert' => '0.17',
-                           'List::SkipList' => '0.4',
-                           'Carp' => 0
+                           'Algorithm::SkipList' => '1',
+                           'Test::More' => '0',
+                           'base' => '0'
                          },
           'INSTALLDIRS' => 'site',
           'PL_FILES' => {}

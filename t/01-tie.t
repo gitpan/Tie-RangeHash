@@ -1,3 +1,5 @@
+#-*- mode: perl;-*-
+
 # General tests using 'tie' interface for Tie::RangeHash
 # 
 # You will see warnings. This is intentional.
@@ -8,7 +10,7 @@ use Test;
 
 BEGIN { plan tests => 23, todo => [ ] }
 
-use Tie::RangeHash '1.00';
+use Tie::RangeHash 1.00;
 ok(1);
 
 

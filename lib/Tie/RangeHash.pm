@@ -1,4 +1,4 @@
-package List::SkipList::StringRangeNode;
+package Algorithm::SkipList::StringRangeNode;
 
 require 5.006;
 
@@ -6,13 +6,13 @@ use strict;
 use warnings; ## ::register __PACKAGE__;
 
 use Carp;
-no Carp::Assert;
+#  no Carp::Assert;
 
-our @ISA = qw( List::SkipList::Node );
+use base 'Algorithm::SkipList::Node';
 
 sub key_cmp {
   my $self = shift;
-  assert( UNIVERSAL::isa($self, __PACKAGE__) ), if DEBUG;
+#   assert( UNIVERSAL::isa($self, __PACKAGE__) ), if DEBUG;
 
   my $left  = $self->key;
   my $right = shift;
@@ -59,7 +59,7 @@ sub key_cmp {
     my $lo_cmp = ($lo ne "") ? ($lo cmp $right) : -1;
     my $hi_cmp = ($hi ne "") ? ($hi cmp $right) : 1;
 
-    assert( $hi_cmp >= $lo_cmp ), if DEBUG;
+#     assert( $hi_cmp >= $lo_cmp ), if DEBUG;
 
     if (($lo_cmp <= 0) && ($hi_cmp >= 0)) {
       return 0;
@@ -71,16 +71,10 @@ sub key_cmp {
   }
 }
 
-sub validate_key {
-  my $self = shift;
-  assert( UNIVERSAL::isa($self, __PACKAGE__) ), if DEBUG;
-
-  return 1;
-}
 
 1;
 
-package List::SkipList::NumericRangeNode;
+package Algorithm::SkipList::NumericRangeNode;
 
 require 5.006;
 
@@ -88,13 +82,13 @@ use strict;
 use warnings; # ::register __PACKAGE__;
 
 use Carp;
-no Carp::Assert;
+# no Carp::Assert;
 
-our @ISA = qw( List::SkipList::Node );
+use base 'Algorithm::SkipList::Node';
 
 sub key_cmp {
   my $self = shift;
-  assert( UNIVERSAL::isa($self, __PACKAGE__) ), if DEBUG;
+#   assert( UNIVERSAL::isa($self, __PACKAGE__) ), if DEBUG;
 
   my $left  = $self->key;
   my $right = shift;
@@ -143,7 +137,7 @@ sub key_cmp {
     my $lo_cmp = ($lo ne "") ? ($lo <=> $right) : -1;
     my $hi_cmp = ($hi ne "") ? ($hi <=> $right) : 1;
 
-    assert( $hi_cmp >= $lo_cmp ), if DEBUG;
+#     assert( $hi_cmp >= $lo_cmp ), if DEBUG;
 
     if (($lo_cmp <= 0) && ($hi_cmp >= 0)) {
       return 0;
@@ -155,12 +149,18 @@ sub key_cmp {
   }
 }
 
-sub validate_key {
-  my $self = shift;
-  assert( UNIVERSAL::isa($self, __PACKAGE__) ), if DEBUG;
-  my $key = shift;
-  return ($key =~ /\-?\d+(\.\d+)?(,\-?\d+(\.\d+)?)?/);
-}
+
+1;
+
+package Tie::RangeHash::TYPE_STRING;
+
+use base 'Algorithm::SkipList::StringRangeNode';
+
+1;
+
+package Tie::RangeHash::TYPE_NUMBER;
+
+use base 'Algorithm::SkipList::NumericRangeNode';
 
 1;
 
@@ -172,34 +172,24 @@ use strict;
 use warnings; # ::register __PACKAGE__;
 
 use Carp;
-no Carp::Assert;
-use List::SkipList 0.40;
+# no Carp::Assert;
+use Algorithm::SkipList 1.00;
 
-our $VERSION   = '1.00_2';
+our $VERSION   = '1.01';
+# $VERSION = eval $VERSION;
 
-BEGIN
-  {
+use constant TYPE_STRING => 'Algorithm::SkipList::StringRangeNode';
+use constant TYPE_NUMBER => 'Algorithm::SkipList::NumericRangeNode';
 
-    # Define public constants
+# we use the full Exporter rather than something like Exporter::Lite
+# because Algorithm::SkipList uses the full exporter.
 
-    *TYPE_STRING = sub () { return 'List::SkipList::StringRangeNode'; };
-    *TYPE_NUMBER = sub () { return 'List::SkipList::NumericRangeNode'; };
-}
+require Exporter; 
 
-sub import
+our @ISA = qw(Exporter);
 
-# A rudimentary 'import' method for the module (Some day we''ll do something
-# more important with this)
-
-  {
-    my $class       = shift;
-    my $version_req = shift || 0;
-    if ($version_req gt $VERSION)
-      {
-	croak "Using Tie::RangeHash $VERSION when $version_req was requested";
-      }
-  }
-
+our @EXPORT = ();
+our @EXPORT_OK = qw( TYPE_STRING TYPE_NUMBER );
 
 sub new {
   my $class = shift;
@@ -232,7 +222,7 @@ sub new {
     }
   }
 
-  $self->{SKIPLIST} = new List::SkipList( 
+  $self->{SKIPLIST} = new Algorithm::SkipList( 
     node_class => $self->{NODECLASS},
   );
 
@@ -241,25 +231,25 @@ sub new {
 
 sub _set_Type {
   my $self = shift;
-  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
+#   assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
 
   my $node_class = shift;
   my $node = new $node_class;
-  assert( UNIVERSAL::isa($node, "List::SkipList::Node" ) ), if DEBUG;
+#   assert( UNIVERSAL::isa($node, "Algorithm::SkipList::Node" ) ), if DEBUG;
 
   $self->{NODECLASS} = $node_class;
 }
 
 sub fetch {
   my $self = shift;
-  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
+#   assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
   my $key = shift;
   return $self->{SKIPLIST}->find( $key );
 }
 
 sub fetch_key {
   my $self = shift;
-  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
+#   assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
 
   my $key = shift;
   my ($x, $update_ref) = $self->{SKIPLIST}->_search($key);
@@ -272,27 +262,27 @@ sub fetch_key {
 
 sub key_exists {
   my $self = shift;
-  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
+#   assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
   my $key = shift;
   $self->{SKIPLIST}->exists($key);
 }
 
 sub add {
   my $self = shift;
-  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
+#  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
   my ($key, $value) = @_;
   $self->{SKIPLIST}->insert($key, $value);
 }
 
 sub clear {
   my $self = shift;
-  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
+#  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
   $self->{SKIPLIST}->clear;
 }
 
 sub remove {
   my $self = shift;
-  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
+#  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
   my $key = shift;
 
   # We could simply call $self->{SKIPLIST}->delete( $key ), but we
@@ -309,16 +299,29 @@ sub remove {
 
 sub first_key {
   my $self = shift;
-  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
+#  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
   return $self->{SKIPLIST}->first_key;
 }
 
 sub next_key {
   my $self = shift;
-  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
+#  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
   my $last_key = shift;
   return $self->{SKIPLIST}->next_key( $last_key );
 }
+
+sub reset {
+  my $self = shift;
+#  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
+  $self->{SKIPLIST}->reset;
+}
+
+sub size {
+  my $self = shift;
+#  assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
+  return $self->{SKIPLIST}->size;
+}
+
 
 BEGIN
   {
@@ -344,7 +347,7 @@ Tie::RangeHash - Allows hashes to associate values with a range of keys
 
 =head1 REQUIREMENTS
 
-C<Carp::Assert> and C<List::SkipList> are required.  Otherwise it uses
+C<Algorithm::SkipList> is required.  Otherwise it uses
 standard modules.
 
 =head2 Installation
@@ -409,7 +412,7 @@ Numeric key ranges can also be used:
   $hash{'1.800001,2.0'} = 'Boo';
 
 Custom comparison routines to support alternate datatypes can be
-implemented by specifying a new node type for C<List::SkipList>.
+implemented by specifying a new node type for C<Algorithm::SkipList>.
 
 I<Information to be added>.
 
@@ -500,13 +503,13 @@ keyword in Perl.
 =head2 Implementation Notes
 
 Internally, the hash uses skip lists.  Skip lists are an alternative
-to binary trees.  For more information, see C<List::SkipList>.
+to binary trees.  For more information, see C<Algorithm::SkipList>.
 
 =head1 KNOWN ISSUES
 
 The is a new version of the module and has behaves differently
 compared to older versions.  This is due to using the
-C<List::SkipList> module for maintaining the underlying data rather
+C<Algorithm::SkipList> module for maintaining the underlying data rather
 than re-implementing it.  While this improves the maintainability with
 the code, it increases incompatability with previous versions.
 
@@ -571,7 +574,7 @@ Warning registration is no longer used.  This may change in the future.
 Only commas can be used as separators.
 
 To customize separators and comparisons, you will have to specify a
-custom C<List::SkipList::Node> method.
+custom C<Algorithm::SkipList::Node> method.
 
 =back
 
@@ -584,7 +587,7 @@ substitute with no problems.
 
 A module with similar functionality for numerical values is C<Array::IntSpan>.
 
-C<List::SkipList> for more information on skip lists.
+C<Algorithm::SkipList> for more information on skip lists.
 
 =head1 AUTHOR
 

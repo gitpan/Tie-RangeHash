@@ -4,8 +4,7 @@ NAME
 REQUIREMENTS
     Perl 5.6.1 is required.
 
-    Carp::Assert and List::SkipList are required.  Otherwise it uses
-    standard modules.
+    Algorithm::SkipList is required.  Otherwise it uses standard modules.
 
   Installation
     Installation can be done using the traditional Makefile.PL or the
@@ -28,15 +27,20 @@ REQUIREMENTS
       perl Build install    
 
 HISTORY
-    Changes since Tie::RangeHash 1.00_b1
+    Changes since Tie::RangeHash 1.00_2
 
-    1.00_2 Fri Mar 19 2004
-	- added Build.PL to distribution
-	- new method accepts a hash reference with attributes as well
-	- META.yml added to distribution
-	* List::SkipList v0.40 is required
-	- changed version number to properly be treated as a beta by CPAN
-	- fixed typo in README
+    1.01   Fri Dec 17 2004
+	- uses base
+	- added SIGNATURE
+	* updated to use Algorithm::SkipList
+	- uses Exporter
+	* removed validate_key() methods from node types (for now)
+	- commented out Carp::Assert
+	- added reset method
+	- version conforms to proper Perl style
+	- added size method
+	- modified tests
+	- added stub for autosplit in Build.PL
 
     A detailed revision history is in the Changes file included with
     this distribution.    
@@ -144,7 +148,7 @@ SEE ALSO
     A module with similar functionality for numerical values is
     Array::IntSpan.
 
-    List::SkipList for more information on skip lists.
+    Algorithm::SkipList for more information on skip lists.
 
 AUTHOR
     Robert Rothenberg <rrwo at cpan.org>
