@@ -1,5 +1,15 @@
 Revision history for Perl extension Tie::RangeHash.
 
+0.60 10 Jul 2001
+	- added 'fetch_key' method
+	- fixed bug with multiple separators warning using array refs as keys
+	- corrected tests to require current version, not 0.51
+	- minor code tweaks for consistency
+	- uses Test::Harness for tests
+	- tests no longer use Time::HiRes
+	- added tests for object-oriented interface
+	- removed randomized test for now
+
 0.52 14 Mar 2001
 	- tweaked the test scripts a bit
 

@@ -3,5 +3,7 @@ Makefile.PL
 MANIFEST
 RangeHash.pm
 README
-test.pl
+t/01-tie.t
+t/02-object.t
+t/10-ordered.t
 

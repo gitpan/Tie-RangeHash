@@ -1,13 +1,13 @@
 package Tie::RangeHash;
 
-require 5.005_62;
+require 5.006;
 
 use strict;
 
-use warnings::register 'Tie::RangeHash';
+use warnings::register __PACKAGE__;
 use Carp;
 
-our $VERSION   = '0.52';
+our $VERSION   = '0.60';
 our @ISA       = qw( );
 
 use integer;
@@ -64,9 +64,10 @@ sub _join_bounds
 # Generate a 'low,high' key from bounds (used mainly for error messages)
 
   {
-    my ($self, $lower_bound, $upper_bound) = @_;
-    join($self->[SPLIT_TEXT], $lower_bound, $upper_bound);
+    my $self = shift;
+    join($self->[SPLIT_TEXT], @_);
   }
+
 
 sub _split_bounds
 
@@ -114,8 +115,9 @@ sub _split_bounds
 
     elsif ( (defined($extra_stuff)) and (warnings::enabled) )
       {
+	if (ref($key) eq "ARRAY") { $key = $self->_join_bounds(@$key); }
 	warnings::warn
-	  "Multiple separators in \`$key\' will be ignored";
+	  "Multiple separators: only the first two bounds will be used in \`$key\'";
       }
 
     # Make sure $lower_bound <= $upper_bound
@@ -337,9 +339,9 @@ sub _find_node_parent
 	  {
 	    warnings::warn
 	      ("Key range \`" . 
-	       _join_bounds($self, $lower_bound, $upper_bound) .
+	       $self->_join_bounds($lower_bound, $upper_bound) .
 	       "\' exceeds defined key range \`" .
-	       _join_bounds($self, $root->[KEY_LOW], $root->[KEY_HIGH]) .
+	       $self->_join_bounds($root->[KEY_LOW], $root->[KEY_HIGH]) .
 	       "\'" ),
 		 if (warnings::enabled);
 	    return;
@@ -491,7 +493,7 @@ sub new
 
 sub fetch
 
-# Retrieve a node's value, based on the key using _find_node()
+# Retrieve a node's value, based on the key using _find_node_parent()
 
   {
     my ($self, $key) = @_;
@@ -514,6 +516,34 @@ sub fetch
     my $node = ( _find_node_parent($self, $self->[ROOT_NODE], undef,
 				   _split_bounds($self, $key)) )[0];
     return ($node) ? $node->[VALUE] : undef;
+  }
+
+sub fetch_key
+
+# Like fetch, but returns the key range that matched. If called in an array
+# context, returns a key/value pair.
+
+  {
+    my ($self, $key) = @_;
+
+    my $node = ( _find_node_parent($self, $self->[ROOT_NODE], undef,
+				   _split_bounds($self, $key)) )[0];
+    if ($node)
+      {
+	my $key = $self->_join_bounds($node->[KEY_LOW], $node->[KEY_HIGH]);
+	if (wantarray)
+	  {
+	    return ($key => $node->[VALUE]);
+	  }
+	else
+	  {
+	    return $key;
+	  }
+      }
+    else
+      {
+	return;
+      }
   }
 
 sub key_exists
@@ -566,12 +596,12 @@ sub remove
       {
 	warnings::warn 
 	  ("Key range \`" .
-	   _join_bounds($self, $lower_bound, $upper_bound) .
+	   $self->_join_bounds($lower_bound, $upper_bound) .
 	   "\' is not a defined key range (found \`" .
-	   _join_bounds($self, $node->[KEY_LOW], $node->[KEY_HIGH]) .
+	   $self->_join_bounds($node->[KEY_LOW], $node->[KEY_HIGH]) .
 	   "\')" ),
 	     if (warnings::enabled);
-	return;	    
+	return;
       }
 
     if ($parent)
@@ -633,8 +663,6 @@ C<Tie::RangeHash> is written for and tested on Perl 5.6.0.
 
 It uses only standard modules.
 
-The test suite will use C<Time::HiRes> if it is available.
-
 =head2 Installation
 
 Installation is pretty standard:
@@ -643,6 +671,8 @@ Installation is pretty standard:
   make
   make test
   make install
+
+Note that when you run the tests, you will see warnings. That is intentional.
 
 =head1 SYNOPSIS
 
@@ -658,6 +688,15 @@ Installation is pretty standard:
   $hash{'BB'};          # returns '1'
 
   $hash{'KL'};          # returns nothing ('undef')
+
+There is also an object-oriented interface:
+
+  $hash = new Tie::RangeHash;
+
+  $hash->add('A,C', 1);
+  $hash->add('G,I', 2);
+
+  $hash->fetch('H');    # returns '2'
 
 =head1 DESCRIPTION
 
@@ -755,6 +794,16 @@ for tied hashes.
 Returns the value associated with C<$KEY>. (C<$KEY> may be in the form of
 C<low,high> or a key between C<low> and C<high>.) This is the same as the
 C<FETCH> method used for tied hashes.
+
+=item fetch_key
+
+  $REAL_KEY = $OBJ->fetch( $KEY );
+
+  ($REAL_KEY, $VALUE) = $OBJ->fetch( $KEY );
+
+Like C<fetch>, but it returns the I<key range> that was matched rather
+than the value. If it is called in an array context, it will return the
+key and value.
 
 =item key_exists
 

@@ -5,7 +5,7 @@ WriteMakefile(
     'NAME'		=> 'Tie::RangeHash',
     'VERSION_FROM'	=> 'RangeHash.pm', # finds $VERSION
     'PREREQ_PM'		=> {
-       'warnings::register' => 0,
+       'warnings::register' => 0, # enforce Perl 5.6.0
        'Carp'               => 0,
      },
   ($] ge '5.005') ? (

@@ -6,8 +6,6 @@ REQUIREMENTS
 
     It uses only standard modules.
 
-    The test suite will use `Time::HiRes' if it is available.
-
   Installation
 
     Installation is pretty standard:
@@ -18,17 +16,17 @@ REQUIREMENTS
       make install
 
 HISTORY
-    Changes since Tie::RangeHash v0.41
+    Changes since Tie::RangeHash v0.52
 
-    0.42 17 Jan 2001
-	- modified test suite to compare adding sequential nodes with
-	  randomly shuffled nodes in timings
-	- changed 'die' to 'croak' in TIEHASH method
-	- changed internal object from hash to array
-	- other optimizations
-	- fixed typos in comments and POD
-	- renamed some fields/variables for clarity
-	- added TYPE_USER comparison type for consistency
+    0.60 10 Jul 2001
+	- added 'fetch_key' method
+	- fixed bug with multiple separators warning using array refs as keys
+	- corrected tests to require current version, not 0.51
+	- minor code tweaks for consistency
+	- uses Test::Harness for tests
+	- tests no longer use Time::HiRes
+	- added tests for object-oriented interface
+	- removed randomized test for now
 
 SYNOPSIS
       use Tie::RangeHash;
@@ -43,6 +41,15 @@ SYNOPSIS
       $hash{'BB'};          # returns '1'
 
       $hash{'KL'};          # returns nothing ('undef')
+
+    There is also an object-oriented interface:
+
+      $hash = new Tie::RangeHash;
+
+      $hash->add('A,C', 1);
+      $hash->add('G,I', 2);
+
+      $hash->fetch('H');    # returns '2'
 
 DESCRIPTION
     This module allows hashes to associate a value with a *range* of keys
