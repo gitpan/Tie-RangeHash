@@ -1,5 +1,14 @@
 Revision history for Perl extension Tie::RangeHash.
 
+0.70 11 Jul 2002
+	- _find_node_parent() changed to use iterative search rather than
+          recursive search for minor speed improvement and big stack usage
+          improvement
+	- non-object-oriented calls changed to object-orient calls
+          (consistency!)
+	- additional comments in POD
+	- added SEE ALSO note in POD about Array::IntSpan
+
 0.60 10 Jul 2001
 	- added 'fetch_key' method
 	- fixed bug with multiple separators warning using array refs as keys

@@ -16,17 +16,16 @@ REQUIREMENTS
       make install
 
 HISTORY
-    Changes since Tie::RangeHash v0.52
+    Changes since Tie::RangeHash v0.60
 
-    0.60 10 Jul 2001
-	- added 'fetch_key' method
-	- fixed bug with multiple separators warning using array refs as keys
-	- corrected tests to require current version, not 0.51
-	- minor code tweaks for consistency
-	- uses Test::Harness for tests
-	- tests no longer use Time::HiRes
-	- added tests for object-oriented interface
-	- removed randomized test for now
+    0.70 11 Jul 2002
+	- _find_node_parent() changed to use iterative search rather than
+          recursive search for minor speed improvement and big stack usage
+          improvement
+	- non-object-oriented calls changed to object-orient calls
+          (consistency!)
+	- additional comments in POD
+	- added SEE ALSO note in POD about Array::IntSpan
 
 SYNOPSIS
       use Tie::RangeHash;
@@ -62,7 +61,7 @@ AUTHOR
     Robert Rothenberg <rrwo@cpan.org>
 
 LICENSE
-    Copyright (c) 2000-2001 Robert Rothenberg. All rights reserved. This
+    Copyright (c) 2000-2002 Robert Rothenberg. All rights reserved. This
     program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
 

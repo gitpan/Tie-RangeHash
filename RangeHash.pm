@@ -7,7 +7,7 @@ use strict;
 use warnings::register __PACKAGE__;
 use Carp;
 
-our $VERSION   = '0.60';
+our $VERSION   = '0.70';
 our @ISA       = qw( );
 
 use integer;
@@ -178,7 +178,6 @@ sub _new_node
 
   }
 
-
 sub _count_left
 
 # Updates the count of children on the left node. Assumes the counts on the
@@ -314,52 +313,63 @@ sub _find_node_parent
 
     unless ($root) { return; }
 
-    if (&{$self->[CMP_SUB]}($upper_bound, $root->[KEY_LOW])<0)
-      {
-	return _find_node_parent($self, $root->[NODE_LEFT], $root,
-			  $lower_bound, $upper_bound);
-      }
-    elsif (&{$self->[CMP_SUB]}($lower_bound, $root->[KEY_HIGH])>0)
-      {
-	return _find_node_parent($self, $root->[NODE_RIGHT], $root,
-			  $lower_bound, $upper_bound);
-      }
-    else
-      {
+    # The tree search has been rewritten in v0.70 to be iterative
+    # rather than recursive. This is *slightly* faster, but more
+    # imporantly it's less intensive on the stack.
 
-	# The speed improvement of not checking $lower_bound and $upper_bound
-	# for range overlaps is negligible compared to the advantage of having
-	# a warning reported
+    my ($lo_cmp, $hi_cmp) = (-1, 1);
 
-	if ((&{$self->[CMP_SUB]}($lower_bound, $upper_bound))
-	  and (
-	       (&{$self->[CMP_SUB]}($lower_bound, $root->[KEY_LOW]) < 0)
-	       or (&{$self->[CMP_SUB]}($upper_bound, $root->[KEY_HIGH]) > 0)
-	      ) )
-	  {
+    while (($root) and (($lo_cmp<0) or ($hi_cmp>0)))
+    {
+      $lo_cmp = &{$self->[CMP_SUB]}($upper_bound, $root->[KEY_LOW]);
+      $hi_cmp = &{$self->[CMP_SUB]}($lower_bound, $root->[KEY_HIGH]);
+
+      if ($lo_cmp<0)
+	{
+	  $parent = $root;
+	  $root   = $root->[NODE_LEFT];
+	}
+      elsif ($hi_cmp>0)
+	{
+	  $parent = $root;
+	  $root   = $root->[NODE_RIGHT];
+	}
+      else
+	{
+	  # The speed improvement of not checking $lower_bound and
+	  # $upper_bound for range overlaps is negligible compared to
+	  # the advantage of having a warning reported
+
+	  if ((&{$self->[CMP_SUB]}($lower_bound, $upper_bound))
+	      and (
+		   (&{$self->[CMP_SUB]}($lower_bound, $root->[KEY_LOW]) < 0)
+		   or (&{$self->[CMP_SUB]}($upper_bound, $root->[KEY_HIGH]) > 0)
+		  ) ) {
 	    warnings::warn
-	      ("Key range \`" . 
-	       $self->_join_bounds($lower_bound, $upper_bound) .
-	       "\' exceeds defined key range \`" .
-	       $self->_join_bounds($root->[KEY_LOW], $root->[KEY_HIGH]) .
-	       "\'" ),
-		 if (warnings::enabled);
+		("Key range \`" . 
+		 $self->_join_bounds($lower_bound, $upper_bound) .
+		 "\' exceeds defined key range \`" .
+		 $self->_join_bounds($root->[KEY_LOW], $root->[KEY_HIGH]) .
+		 "\'" ),
+		   if (warnings::enabled);
 	    return;
 	  }
+	}
 
-	# _find_node_parent() now returns the node as opposed to the value;
-	# aside from making the function's name more accurate as to what it
-	# does, it also allows us to properly handle the case where:
-	#
-	#   $hash{'low,high'} = undef
-	#
-	# Previously, EXISTS would get the value and say the key did not
-	# exist.
+    }
 
-	return ($root, $parent);
-      }
+    # _find_node_parent() now returns the node as opposed to the value;
+    # aside from making the function's name more accurate as to what it
+    # does, it also allows us to properly handle the case where:
+    #
+    #   $hash{'low,high'} = undef
+    #
+    # Previously, EXISTS would get the value and say the key did not
+    # exist.
+
+    return ($root, $parent);
+
   }
-
 
 
 sub _process_args
@@ -507,14 +517,14 @@ sub fetch
     # If you're using TYPE_NUMBER keys, you'll get a warning because Perl
     # is FETCHing that key and can't compare a string 'low,high' with a
     # number.
-    # 
+    #
     # So we've modified _find_node() to handle lower and upper bounds
     # (it will use both bounds when searching the keys, and if the bounds
     # are different it will check if the bounds are out of the node's
     # range.)
 
-    my $node = ( _find_node_parent($self, $self->[ROOT_NODE], undef,
-				   _split_bounds($self, $key)) )[0];
+    my $node = ( $self->_find_node_parent($self->[ROOT_NODE], undef,
+				   $self->_split_bounds($key)) )[0];
     return ($node) ? $node->[VALUE] : undef;
   }
 
@@ -526,8 +536,8 @@ sub fetch_key
   {
     my ($self, $key) = @_;
 
-    my $node = ( _find_node_parent($self, $self->[ROOT_NODE], undef,
-				   _split_bounds($self, $key)) )[0];
+    my $node = ( $self->_find_node_parent($self->[ROOT_NODE], undef,
+				   $self->_split_bounds($key)) )[0];
     if ($node)
       {
 	my $key = $self->_join_bounds($node->[KEY_LOW], $node->[KEY_HIGH]);
@@ -552,7 +562,7 @@ sub key_exists
 
   {
     my ($self, $key) = @_;
-    my $node = ( _find_node_parent($self, $self->[ROOT_NODE], undef,
+    my $node = ( $self->_find_node_parent($self->[ROOT_NODE], undef,
 				   _split_bounds($self, $key)) )[0];
     return (defined($node));
   }
@@ -563,7 +573,7 @@ sub add
 
   {
     my ($self, $key, $value) = @_;
-    _add_new_node($self, _split_bounds($self, $key), $value);
+    $self->_add_new_node($self->_split_bounds($key), $value);
   }
 
 sub clear
@@ -582,10 +592,10 @@ sub remove
   {
     my ($self, $key) = @_;
 
-    my ($lower_bound, $upper_bound) = _split_bounds($self, $key);
+    my ($lower_bound, $upper_bound) = $self->_split_bounds($key);
     my ($node, $parent) =
-      _find_node_parent($self, $self->[ROOT_NODE], undef,
-			$lower_bound, $upper_bound);
+      $self->_find_node_parent($self->[ROOT_NODE], undef,
+			       $lower_bound, $upper_bound);
 
     # Caveat: if $parent is not the parent of $node, you've got a problem!
 
@@ -612,7 +622,7 @@ sub remove
 	    $parent->[NODE_RIGHT] = $node->[NODE_RIGHT];
 
 	    $parent->[NODE_RIGHT] =
-	      _add_node($self, $parent->[NODE_RIGHT], $node->[NODE_LEFT]),
+	      $self->_add_node($parent->[NODE_RIGHT], $node->[NODE_LEFT]),
 	        if ($node->[NODE_LEFT]);
 	      }
 	elsif (&{$self->[CMP_SUB]}($parent->[KEY_LOW],
@@ -622,14 +632,14 @@ sub remove
 	    $parent->[NODE_LEFT] = $node->[NODE_LEFT];
 
 	    $parent->[NODE_LEFT] =
-	      _add_node($self, $parent->[NODE_LEFT], $node->[NODE_RIGHT]),
+	      $self->_add_node($parent->[NODE_LEFT], $node->[NODE_RIGHT]),
 	        if ($node->[NODE_RIGHT]);
 	  }
       }
     else
       {	
 	$self->[ROOT_NODE] = $node->[NODE_LEFT];
-	$self->[ROOT_NODE] = _add_node($self, $self->[ROOT_NODE],
+	$self->[ROOT_NODE] = $self->_add_node( $self->[ROOT_NODE],
 				       $node->[NODE_RIGHT]),
 	  if ($node->[NODE_RIGHT]);
       }
@@ -840,7 +850,8 @@ keyword in Perl.
 =head2 Implementation Notes
 
 Internally, the hash is actually a binary tree. Values are retrieved by
-searching the tree for nodes that where the key is within range.
+searching the tree for nodes that where the key is within range.  I<This
+module has nothing to do with "range trees".>
 
 The binary-tree code is spontaneously written and has a very simple
 tree-banacing scheme. (It needs some kind of scheme since sorted data
@@ -867,6 +878,10 @@ with warnings in Perl 5.6.0.)
 This module is incomplete for a tied hash: it has no C<FIRSTKEY> or C<NEXTKEY>
 methods (pending my figuring out a good way to implement them).
 
+=head1 SEE ALSO
+
+A module with similar functionality for numerical values is C<Array::IntSpan>.
+
 =head1 AUTHOR
 
 Robert Rothenberg <rrwo@cpan.org>
@@ -879,7 +894,7 @@ Various Perl Monks <http://www.perlmonks.org> for advice and code snippets.
 
 =head1 LICENSE
 
-Copyright (c) 2000-2001 Robert Rothenberg. All rights reserved.
+Copyright (c) 2000-2002 Robert Rothenberg. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
