@@ -7,15 +7,11 @@ my $build = Module::Build->new
      requires => {
        'perl'                       => '5.6.1',
        'base'                       => 0,
-       'Algorithm::SkipList'        => 1.00,
+       'Algorithm::SkipList'        => 1.02,
        'Test::More'                 => 0,
      },
      recommends => {
-       'Carp::Assert'               => 0,
      },
-#      autosplit  => [qw(
-#        lib/Tie/RangeHash.pm
-#      )],
      create_makefile_pl => 'traditional',
      dist_author        => 'Robert Rothenberg <rrwo at cpan.org>',
      sign => 1,

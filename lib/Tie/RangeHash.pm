@@ -134,6 +134,10 @@ sub key_cmp {
 
     my ($lo, $hi) = split /,/, $left;
 
+    $lo = "",    unless (defined $lo);
+    $hi = "",    unless (defined $hi);
+    $right = "", unless (defined $right);
+
     my $lo_cmp = ($lo ne "") ? ($lo <=> $right) : -1;
     my $hi_cmp = ($hi ne "") ? ($hi <=> $right) : 1;
 
@@ -173,9 +177,9 @@ use warnings; # ::register __PACKAGE__;
 
 use Carp;
 # no Carp::Assert;
-use Algorithm::SkipList 1.00;
+use Algorithm::SkipList 1.02;
 
-our $VERSION   = '1.02';
+our $VERSION   = '1.03';
 # $VERSION = eval $VERSION;
 
 use constant TYPE_STRING => 'Algorithm::SkipList::StringRangeNode';
@@ -193,7 +197,6 @@ our @EXPORT_OK = qw( TYPE_STRING TYPE_NUMBER );
 
 sub new {
   my $class = shift;
-
 
   my $self = {
     SKIPLIST  => undef,
@@ -256,6 +259,26 @@ sub fetch_key {
   if ($x->key_cmp($key) == 0) {
     return (wantarray) ? ($x->key => $x->value) : $x->key;
   } else {
+    return;
+  }
+}
+
+sub fetch_overlap {
+  my $self = shift;
+#   assert( UNIVERSAL::isa($self, "Tie::RangeHash") ), if DEBUG;
+
+  my $key  = shift;
+  my ($low, $high) = split /,/, $key;
+
+  my @nodes = $self->{SKIPLIST}->_search_nodes($low, undef, $high);
+  unless (@nodes) {
+    @nodes = $self->{SKIPLIST}->_search_nodes(undef, undef, $high);
+  }
+
+  if (@nodes) {
+    return map { $_->value } @nodes;
+  }
+  else {
     return;
   }
 }
@@ -347,19 +370,8 @@ Tie::RangeHash - Allows hashes to associate values with a range of keys
 
 =head1 REQUIREMENTS
 
-C<Algorithm::SkipList> is required.  Otherwise it uses
+L<Algorithm::SkipList> is required.  Otherwise it uses
 standard modules.
-
-=head2 Installation
-
-Installation is pretty standard:
-
-  perl Makefile.PL
-  make
-  make test
-  make install
-
-Note that when you run the tests, you will see warnings. That is intentional.
 
 =head1 SYNOPSIS
 
@@ -412,13 +424,11 @@ Numeric key ranges can also be used:
   $hash{'1.800001,2.0'} = 'Boo';
 
 Custom comparison routines to support alternate datatypes can be
-implemented by specifying a new node type for C<Algorithm::SkipList>.
-
-I<Information to be added>.
+implemented by specifying a new node type for L<Algorithm::SkipList>.
 
 =head2 Object-Oriented Interface
 
-C<Tie::RangeHash> has an object-oriented interface as an alternative to
+L<Tie::RangeHash> has an object-oriented interface as an alternative to
 using a tied hash.
 
 =over
@@ -427,89 +437,96 @@ using a tied hash.
 
 Creates a new object.
 
-  $OBJ = Tie::RangeHash->new( %ATTR );
+  $obj = Tie::RangeHash->new( %attr );
 
-C<%ATTR> is a hash containing the attributes described above. This is the same
-as the C<TIEHASH> method used for tied hashes.
+C<%attr> is a hash containing the attributes described above.
 
 =item add
 
 Adds a new key/value pair to the object.
 
-  $OBJ->add( $KEY, $VALUE );
+  $obj->add( $key, $value );
 
-C<$KEY> may be a string value in the form of C<low,high> or an array reference
-in the form of C<[ low, high ]>. This is the same as the C<STORE> method used
-for tied hashes.
+C<$key> may be a string value in the form of C<low,high> (for example,
+"Samantha,Selma").
 
 =item fetch
 
-  $VALUE = $OBJ->fetch( $KEY );
+  $value = $obj->fetch( $key );
 
-Returns the value associated with C<$KEY>. (C<$KEY> may be in the form of
-C<low,high> or a key between C<low> and C<high>.) This is the same as the
-C<FETCH> method used for tied hashes.
+Returns the value associated with C<$key>. (C<$key> may be in the form of
+C<low,high> or any key between C<low> and C<high>.)
+
+If they key range overlaps multiple keys, it will return a fatal
+error.  In such cases, use L</fetch_overlap>.
+
+=item fetch_overlap
+
+  @values = $obj->fetch_overlap("$low,$high");
+
+Retrieves multiple values associated with a range of keys between C<$low>
+and C<$high>.  Capable of fetching values from overlapping keys.
+
+See L</KNOWN ISSUES> for more information about overlapping keys.
 
 =item fetch_key
 
-  $REAL_KEY = $OBJ->fetch( $KEY );
+  $real_key = $obj->fetch_key( $key );
 
-  ($REAL_KEY, $VALUE) = $OBJ->fetch( $KEY );
+  ($real_key, $value) = $obj->fetch( $key );
 
-Like C<fetch>, but it returns the I<key range> that was matched rather
+Like L</fetch>, but it returns the I<key range> that was matched rather
 than the value. If it is called in an array context, it will return the
 key and value.
 
 =item key_exists
 
-  if ($OBJ->key_exists( $KEY )) { .. }
+  if ($obj->key_exists( $key )) { .. }
 
-Returns C<true> if C<$KEY> has been defined (even if the value is C<undef>).
-(C<$KEY> is in the same form as is used by the C<fetch> method.) This is the
-same as the C<EXISTS> method used for tied hashes.
-
-It is called C<key_exists> so as not to be confused with the C<exists> keyword
-in Perl.
+Returns c<true> if C<$key> has been defined (even if the value is C<undef>).
+(C<$key> is in the same form as is used by the L</fetch> method.)
 
 =item clear
 
-  $OBJ->clear();
+  $obj->clear();
 
-Deletes all keys and values defined in the object. This is the same as the
-C<CLEAR> method used for tied hashes.
+Deletes all keys and values defined in the object.
 
 =item remove
 
-  $VALUE = $OBJ->remove( $KEY );
+  $value = $obj->remove( $key );
 
-Deletes the C<$KEY> from the object and returnes the associated value.
-(C<$KEY> is in the same form as is used by the C<fetch> method.)  If
-C<$KEY> is not the exact C<low,high> range, a warning will be emitted.
-This is the same as the C<DELETE> method used for tied hashes.
-
-It is called C<remove> so as not to be confused with the C<delete>
-keyword in Perl.
+Deletes the C<$key> from the object and returnes the associated value.
+(C<$key> is in the same form as is used by the C<fetch> method.)  If
+C<$key> is not the exact C<low,high> range, a warning will be emitted.
 
 =item first_key
 
-  $KEY = $OBJ->first_key();
+  $key = $obj->first_key();
+
+Returns the first.
 
 =item next_key
 
-  $KEY = $OBJ->next_key($LAST_KEY);
+  $key = $obj->next_key($last_key);
+
+Returns the next key in the iteration.
 
 =back
 
 =head2 Implementation Notes
 
 Internally, the hash uses skip lists.  Skip lists are an alternative
-to binary trees.  For more information, see C<Algorithm::SkipList>.
+to binary trees.  For more information, see L<Algorithm::SkipList>.
+
+Future versions may be changed to use something else that is more
+efficient.
 
 =head1 KNOWN ISSUES
 
 The is a new version of the module and has behaves differently
 compared to older versions.  This is due to using the
-C<Algorithm::SkipList> module for maintaining the underlying data rather
+L<Algorithm::SkipList> module for maintaining the underlying data rather
 than re-implementing it.  While this improves the maintainability with
 the code, it increases incompatability with previous versions.
 
@@ -536,6 +553,8 @@ to run some checks if you are testing hash ranges:
     if ($hash{'111,999'} == $value) { ... }
   }
 
+Another option is to use L</fetch_overlap> instead.
+
 =item Keys can be redefined
 
 Nodes can now be redefined.  For example:
@@ -559,7 +578,14 @@ Open ended ranges are now supported.  So the following can be added:
   $hash{',10'} = $upper_bound;
   $hash{'11,'} = $lower_bound;
 
-=item array references can no longer be keys.
+Note that once open-ended ranges are defined, they are permenently
+open-ended unless the final range is deleted.  Thus,
+
+  $hash{'12,13'}
+
+refers to the key C<"11,">.
+
+=item Array references can no longer be keys.
 
 The following is I<not> supported anymore:
 
@@ -578,16 +604,17 @@ custom C<Algorithm::SkipList::Node> method.
 
 =back
 
-See the L<Changes> file for a more complete list of incompatabilities.
+See the L<Changes> file for a more complete list of changes and
+incompatabilities.
 
 If your code does not rely on these quirks, then you should be able to
 substitute with no problems.
 
 =head1 SEE ALSO
 
-A module with similar functionality for numerical values is C<Array::IntSpan>.
+A module with similar functionality for numerical values is L<Array::IntSpan>.
 
-C<Algorithm::SkipList> for more information on skip lists.
+L<Algorithm::SkipList> for more information on skip lists.
 
 =head1 AUTHOR
 
@@ -600,7 +627,7 @@ bug reports.
 
 Sam Tregar <sam at tregar.com> for optimization suggestions.
 
-Various Perl Monks <http://www.perlmonks.org> for advice and code snippets.
+Various Perl Monks L<http://www.perlmonks.org> for advice and code snippets.
 
 =head2 Suggestions and Bug Reporting
 
@@ -609,7 +636,7 @@ L<http://rt.cpan.org> to submit bug reports.
 
 =head1 LICENSE
 
-Copyright (C) 2000-2004 Robert Rothenberg. All rights reserved.
+Copyright (C) 2000-2005 Robert Rothenberg. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 

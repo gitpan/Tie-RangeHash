@@ -5,7 +5,7 @@ WriteMakefile
           'NAME' => 'Tie::RangeHash',
           'VERSION_FROM' => 'lib/Tie/RangeHash.pm',
           'PREREQ_PM' => {
-                           'Algorithm::SkipList' => '1',
+                           'Algorithm::SkipList' => '1.02',
                            'Test::More' => '0',
                            'base' => '0'
                          },

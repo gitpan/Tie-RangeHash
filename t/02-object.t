@@ -4,11 +4,11 @@
 
 require 5.006;
 
-use Test::More tests => 163;
+use Test::More tests => 170;
 
 use_ok("Tie::RangeHash");
 
-ok($Tie::RangeHash::VERSION >= 1.00);
+ok($Tie::RangeHash::VERSION >= 1.03);
 
 {
   my $node1 = new Tie::RangeHash::TYPE_NUMBER;
@@ -60,6 +60,29 @@ ok($Tie::RangeHash::VERSION >= 1.00);
       ok(!$result);
     }
     $last_hi = $high;
+  }
+
+  {
+    my @values = $hash->fetch_overlap("1,11");
+    ok(@values == 3);
+
+    @values = $hash->fetch_overlap("0,11");
+    ok(@values == 3);
+
+    @values = $hash->fetch_overlap("0,12");
+    ok(@values == 3);
+
+    @values = $hash->fetch_overlap("1,6");
+    ok(@values == 2);
+
+    @values = $hash->fetch_overlap("1,2");
+    ok(@values == 1);
+
+    @values = $hash->fetch_overlap("0,2");
+    ok(@values == 1);
+
+    @values = $hash->fetch_overlap("10,100");
+    ok(@values == 1);
   }
 
   $hash->add(",-1", 0);        unshift @keys, ",-1";
