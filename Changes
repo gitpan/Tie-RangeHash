@@ -3,7 +3,15 @@ Revision history for Perl extension Tie::RangeHash.
 Significant changes marked with '*' may not be compatible with
 previous versions.
 
-1.00_b1 22 Nov 2003
+1.00_2 Fri Mar 19 2004
+	- added Build.PL to distribution
+	- new method accepts a hash reference with attributes as well
+	- META.yml added to distribution
+	* List::SkipList v0.40 is required
+	- changed version number to properly be treated as a beta by CPAN
+	- fixed typo in README
+
+1.00_b1 Nov 22 2003
 	- test cases rewritten
 	* testing against overlapping ranges (e.g. '2,3' when '1,4' defined)
 	  is fatal

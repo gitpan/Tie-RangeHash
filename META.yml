@@ -1,0 +1,15 @@
+--- #YAML:1.0
+name: Tie-RangeHash
+version: 1.00_2
+author:
+  - Robert Rothenberg <rrwo at cpan.org>
+abstract: |-
+  Allows hashes to associate values with a range of keys
+license: perl
+requires:
+  Carp: 0
+  Carp::Assert: 0.17
+  List::SkipList: 0.4
+  perl: 5.6.1
+provides: {}
+generated_by: Module::Build version 0.24

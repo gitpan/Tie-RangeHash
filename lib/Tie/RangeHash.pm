@@ -6,7 +6,7 @@ use strict;
 use warnings; ## ::register __PACKAGE__;
 
 use Carp;
-use Carp::Assert;
+no Carp::Assert;
 
 our @ISA = qw( List::SkipList::Node );
 
@@ -88,7 +88,7 @@ use strict;
 use warnings; # ::register __PACKAGE__;
 
 use Carp;
-use Carp::Assert;
+no Carp::Assert;
 
 our @ISA = qw( List::SkipList::Node );
 
@@ -172,10 +172,10 @@ use strict;
 use warnings; # ::register __PACKAGE__;
 
 use Carp;
-use Carp::Assert;
-use List::SkipList 0.12;
+no Carp::Assert;
+use List::SkipList 0.40;
 
-our $VERSION   = '1.00_b1';
+our $VERSION   = '1.00_2';
 
 BEGIN
   {
@@ -214,7 +214,14 @@ sub new {
 
   {
     my %ARGLIST = ( map { $_ => 1 } qw( Type ) );
-    my %args = @_;
+    my %args;
+
+    if (ref($_[0]) eq "HASH") {
+      %args = %{$_[0]};
+    } else {
+      %args = @_;
+    }
+
     foreach my $arg_name (keys %args) {
       if ($ARGLIST{$arg_name}) {
 	my $method = "_set_" . $arg_name;
@@ -417,7 +424,7 @@ using a tied hash.
 
 Creates a new object.
 
-  $OBJ = Tie::RangeHash->new( \%ATTR );
+  $OBJ = Tie::RangeHash->new( %ATTR );
 
 C<%ATTR> is a hash containing the attributes described above. This is the same
 as the C<TIEHASH> method used for tied hashes.
@@ -581,14 +588,14 @@ C<List::SkipList> for more information on skip lists.
 
 =head1 AUTHOR
 
-Robert Rothenberg <rrwo@cpan.org>
+Robert Rothenberg <rrwo at cpan.org>
 
 =head2 Acknowledgements
 
-Charles Huff <charleshuff@decisionresearch.com> for suggestions and
+Charles Huff <charleshuff atdecisionresearch.com> for suggestions and
 bug reports.
 
-Sam Tregar <sam@tregar.com> for optimization suggestions.
+Sam Tregar <sam at tregar.com> for optimization suggestions.
 
 Various Perl Monks <http://www.perlmonks.org> for advice and code snippets.
 
@@ -599,7 +606,7 @@ L<http://rt.cpan.org> to submit bug reports.
 
 =head1 LICENSE
 
-Copyright (c) 2000-2003 Robert Rothenberg. All rights reserved.
+Copyright (C) 2000-2004 Robert Rothenberg. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 

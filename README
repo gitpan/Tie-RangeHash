@@ -2,35 +2,44 @@ NAME
     Tie::RangeHash - Allows hashes to associate values with a range of keys
 
 REQUIREMENTS
-    "Carp::Assert" and "List::SkipList" are required.  Otherwise it uses
-     standard modules.  Otherwise it uses only standard modules.
+    Perl 5.6.1 is required.
+
+    Carp::Assert and List::SkipList are required.  Otherwise it uses
+    standard modules.
 
   Installation
+    Installation can be done using the traditional Makefile.PL or the
+    newer Build.PL methods.
 
-    Installation is pretty standard:
+    Using Makefile.PL:
 
       perl Makefile.PL
       make
       make test
       make install
 
-HISTORY
-    Changes since Tie::RangeHash v0.72
+    (On Windows platforms you should use nmake instead.)
 
-    1.00_b1 22 Nov 2003
-	* testing against overlapping ranges (e.g. '2,3' when '1,4' defined)
-	  is fatal
-	* nodes can be redefined
-	* array references cannot be keys
-	* open-ended ranges are allowed
-	* removed warnings registration
-	* only a separator of ',' is supported
-        * customization of separator or comparison method done through 
-	  defining a custom node class
-	* overlapping ranges is now a fatal error instead of warning
-	- added first_key, next_key methods
-	- requires Carp::Assert
-	- complete rewrite using List::SkipList instead of trees
+    Using Build.PL (if you have Module::Build installed):
+
+      perl Build.PL
+      perl Build
+      perl Build test
+      perl Build install    
+
+HISTORY
+    Changes since Tie::RangeHash 1.00_b1
+
+    1.00_2 Fri Mar 19 2004
+	- added Build.PL to distribution
+	- new method accepts a hash reference with attributes as well
+	- META.yml added to distribution
+	* List::SkipList v0.40 is required
+	- changed version number to properly be treated as a beta by CPAN
+	- fixed typo in README
+
+    A detailed revision history is in the Changes file included with
+    this distribution.    
 
 SYNOPSIS
       use Tie::RangeHash;
@@ -64,10 +73,10 @@ DESCRIPTION
 
 KNOWN ISSUES
     The is a new version of the module and has behaves differently compared
-    to older versions. This is due to using the "List::SkipList" module for
-    maintaining the underlying data rather than re-implementing it. While
-    this improves the maintainability with the code, it increases
-    incompatability with previous versions.
+    to older versions. This is due to using the List::SkipList module for
+    maintaining the underlying data rather than re-implementing it.  While
+    this improves the maintainability with the code, it increases incom-
+    patability with previous versions.
 
     Some of the changes include:
 
@@ -123,7 +132,7 @@ KNOWN ISSUES
         Only commas can be used as separators.
 
         To customize separators and comparisons, you will have to specify a
-        custom "List::SkipList::Node" method.
+        custom List::SkipList::Node method.
 
     See the the Changes manpage file for a more complete list of
     incompatabilities.
@@ -133,15 +142,15 @@ KNOWN ISSUES
 
 SEE ALSO
     A module with similar functionality for numerical values is
-    "Array::IntSpan".
+    Array::IntSpan.
 
-    "List::SkipList" for more information on skip lists.
+    List::SkipList for more information on skip lists.
 
 AUTHOR
-    Robert Rothenberg <rrwo@cpan.org>
+    Robert Rothenberg <rrwo at cpan.org>
 
 LICENSE
-    Copyright (c) 2000-2003 Robert Rothenberg. All rights reserved. This
+    Copyright (C) 2000-2004 Robert Rothenberg. All rights reserved. This
     program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
 

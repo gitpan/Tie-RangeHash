@@ -1,8 +1,8 @@
 Changes
 Makefile.PL
 MANIFEST
-RangeHash.pm
+META.yml
+lib/Tie/RangeHash.pm
 README
 t/01-tie.t
 t/02-object.t
-
