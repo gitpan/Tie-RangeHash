@@ -1,100 +1,20 @@
 Revision history for Perl extension Tie::RangeHash.
 
-0.72 28 Dec 2002
-	- fixed bug with rt.cpan.org ticket no. 1887 (bug with decimal
-	  ranges) and added test case
+Significant changes marked with '*' may not be compatible with
+previous versions.
 
-0.71 01 Aug 2002
-	- miscellaneous optimizations
-	- corrected tests to require current version
-	- removed references to recursion in POD and comments, since
-	  it's not necessarily relevant to all the functions
-
-0.70 11 Jul 2002
-	- _find_node_parent() changed to use iterative search rather than
-          recursive search for minor speed improvement and big stack usage
-          improvement
-	- non-object-oriented calls changed to object-orient calls
-          (consistency!)
-	- additional comments in POD
-	- added SEE ALSO note in POD about Array::IntSpan
-
-0.60 10 Jul 2001
-	- added 'fetch_key' method
-	- fixed bug with multiple separators warning using array refs as keys
-	- corrected tests to require current version, not 0.51
-	- minor code tweaks for consistency
-	- uses Test::Harness for tests
-	- tests no longer use Time::HiRes
-	- added tests for object-oriented interface
-	- removed randomized test for now
-
-0.52 14 Mar 2001
-	- tweaked the test scripts a bit
-
-0.51  5 Feb 2001
-	- array references can now be used as keys
-	- improved the working of the invalid key range message from the
-	  DELETE method
-	- tweaks of test.pl
-	- corrected outdated information and reorganized POD
-	- added objected oriented interface (aliases to the usual routines)
-
-0.50 18 Jan 2001
-        - arbitrarily changed version to 0.50 since some of the changes
-	  in 0.42 really merit at least that much of a change in version
-	  numbers...
-
-0.42 17 Jan 2001
-	- modified test suite to compare adding sequential nodes with
-	  randomly shuffled nodes in timings
-	- changed 'die' to 'croak' in TIEHASH method
-	- changed internal object from hash to array
-	- other optimizations
-	- fixed typos in comments and POD
-	- renamed some fields/variables for clarity
-	- added TYPE_USER comparison type for consistency
-
-0.41 22 Dec 2000
-	- removed 'unbalanced' option from code (it was commented out anyway)
-	- updated and added comments in code
-	- changed tree nodes from hashes to arrays (this speeds up adding
-	  nodes to the tree)
-	- fixed typo in warning messages
-	- updated code to use Perl 5.6.0 'our' since warnings is 5.6-ish
-	- Tie::RangeHash no longer is a Tie::Hash
-	- TIEHASH now checks for bad arguments	
-	- tweaked/redid comments
-	- tweaked Makefile.PL
-
-0.40 11 Dec 2000
-	- fixed bug where EXISTS method missed $hash{'low,high'} = undef
-	- some minor optimizations
-	- corrected outdated descriptions in the comments
-	- added DELETE method
-	- _find_node() become _find_node_parent for use w/DELETE method
-	- fixed bug with adding undef node
-	- warnings are now disabled unless Perl is run with the -w flag
-	- test.pl will only use Time::HiRes if it is available
-	- other misc. changes to test.pl
-
-0.30  9 Dec 2000
-	- fixed bug with missing 'require Tie::Hash'
-	- overlapping or duplicate STORE now warns rather than dies
-	- added EXISTS method
-	- fixed bug with passing range keys (low,high) to FETCH
-	- Separator can now be a string or a Regexp
-	- Use of $Tie::RangeHash::SEPARATOR deprecated
-	- various speed optimizations in adding nodes and searching tree
-	- improved comments, renamed variables
-	- improved documentation
-	- changed to work with Perl 5.005 (not tested)
-	- added test.pl to distribution
-
-0.20  6 Dec 2000
-	- improved binary tree (with rudimentary balancing)
-	- added CLEAR method
-
-0.10  5 Dec 2000
-	- original version created
-
+1.00_b1 22 Nov 2003
+	- test cases rewritten
+	* testing against overlapping ranges (e.g. '2,3' when '1,4' defined)
+	  is fatal
+	* nodes can be redefined
+	* array references cannot be keys
+	* open-ended ranges are allowed
+	* removed warnings registration
+	* only a separator of ',' is supported
+        * customization of separator or comparison method done through 
+	  defining a custom node class
+	* overlapping ranges is now a fatal error instead of warning
+	- added first_key, next_key methods
+	- requires Carp::Assert
+	- complete rewrite using List::SkipList instead of trees

@@ -4,13 +4,11 @@ require 5.006;
 
 use Test;
 
-BEGIN { plan tests => 20, todo => [ ] }
+BEGIN { plan tests => 17, todo => [ ] }
 
-use Tie::RangeHash '0.71';
+use Tie::RangeHash '1.00';
 ok(1);
 
-use warnings 'Tie::RangeHash';
-ok(1);
 
 {
   my $hash = new Tie::RangeHash;
@@ -31,8 +29,10 @@ ok(1);
   ok (! $hash->fetch('D') );
 
   ok( $hash->fetch('A,C'), 1 );
-  ok( $hash->fetch('A,B'), 1 );
-  ok( $hash->fetch('B,C'), 1 );
+  eval {
+    ok( $hash->fetch('A,B'), 1 );
+    ok( $hash->fetch('B,C'), 1 );
+  };
 
   # Test fetch_key()
 

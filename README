@@ -2,9 +2,8 @@ NAME
     Tie::RangeHash - Allows hashes to associate values with a range of keys
 
 REQUIREMENTS
-    `Tie::RangeHash' is written for and tested on Perl 5.6.0.
-
-    It uses only standard modules.
+    "Carp::Assert" and "List::SkipList" are required.  Otherwise it uses
+     standard modules.  Otherwise it uses only standard modules.
 
   Installation
 
@@ -16,17 +15,22 @@ REQUIREMENTS
       make install
 
 HISTORY
-    Changes since Tie::RangeHash v0.70
+    Changes since Tie::RangeHash v0.72
 
-    0.72 28 Dec 2002
-	- fixed bug with rt.cpan.org ticket no. 1887 (bug with decimal
-	  ranges) and added test case
-
-    0.71 01 Aug 2002
-	- miscellaneous optimizations
-	- corrected tests to require current version
-	- removed references to recursion in POD and comments, since
-	  it's not necessarily relevant to all the functions
+    1.00_b1 22 Nov 2003
+	* testing against overlapping ranges (e.g. '2,3' when '1,4' defined)
+	  is fatal
+	* nodes can be redefined
+	* array references cannot be keys
+	* open-ended ranges are allowed
+	* removed warnings registration
+	* only a separator of ',' is supported
+        * customization of separator or comparison method done through 
+	  defining a custom node class
+	* overlapping ranges is now a fatal error instead of warning
+	- added first_key, next_key methods
+	- requires Carp::Assert
+	- complete rewrite using List::SkipList instead of trees
 
 SYNOPSIS
       use Tie::RangeHash;
@@ -58,11 +62,86 @@ DESCRIPTION
     A more detailed description can be found in the module's POD docu-
     mentation.
 
+KNOWN ISSUES
+    The is a new version of the module and has behaves differently compared
+    to older versions. This is due to using the "List::SkipList" module for
+    maintaining the underlying data rather than re-implementing it. While
+    this improves the maintainability with the code, it increases
+    incompatability with previous versions.
+
+    Some of the changes include:
+
+    Overlapping keys cause fatal errors instead of warnings
+        Because the key comparison is now performed in the skip list node,
+        there is no obvious way for it to give a warning and return a
+        meaningful result. So instead the code dies. If you code relies on
+        the possibility of using overlapping keys, then it may be more
+        appropriate to have it test the code:
+
+          eval {
+            $hash{'111,999'} = $value;
+          };
+
+        This error can also occur by merely testing a hash, so it is
+        important to run some checks if you are testing hash ranges:
+
+          eval {
+            if ($hash{'111,999'} == $value) { ... }
+          }
+
+    Keys can be redefined
+        Nodes can now be redefined. For example:
+
+          $hash{'1,3'} = $value;
+          ...
+          $hash{'1,3'} = $new_value;
+          ...
+          $hash{'2'}   = $new_value;
+
+        Note that a range is no longer required.
+
+    Non-range keys can be added.
+        When inserting a key, "$hash{'x'}" will be treated like
+        "$hash{'x,x'}".
+
+    Open-ended ranges are allowed.
+        Open ended ranges are now supported. So the following can be added:
+
+          $hash{',10'} = $upper_bound;
+          $hash{'11,'} = $lower_bound;
+
+    array references can no longer be keys.
+        The following is *not* supported anymore:
+
+          $hash{ \@array ) = $value;
+
+    warnings no longer registered.
+        Warning registration is no longer used. This may change in the
+        future.
+
+    Custom separators and comparisons are not supported.
+        Only commas can be used as separators.
+
+        To customize separators and comparisons, you will have to specify a
+        custom "List::SkipList::Node" method.
+
+    See the the Changes manpage file for a more complete list of
+    incompatabilities.
+
+    If your code does not rely on these quirks, then you should be able to
+    substitute with no problems.
+
+SEE ALSO
+    A module with similar functionality for numerical values is
+    "Array::IntSpan".
+
+    "List::SkipList" for more information on skip lists.
+
 AUTHOR
     Robert Rothenberg <rrwo@cpan.org>
 
 LICENSE
-    Copyright (c) 2000-2002 Robert Rothenberg. All rights reserved. This
+    Copyright (c) 2000-2003 Robert Rothenberg. All rights reserved. This
     program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
 
