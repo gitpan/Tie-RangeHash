@@ -7,7 +7,7 @@ use strict;
 use warnings::register 'Tie::RangeHash';
 use Carp;
 
-our $VERSION   = '0.42';
+our $VERSION   = '0.52';
 our @ISA       = qw( );
 
 use integer;
@@ -74,32 +74,57 @@ sub _split_bounds
 # 'key,key'. A key in the form of 'high,low' is changed to 'low,high' and
 # a warning is given (maybe it should be fatal?).
 
+# If called with an array reference instead of a string, use the first
+# two elements as low, high keys. (Added in v0.51)
+
   {
     my ($self, $key) = @_;
 
     my ($lower_bound, $upper_bound, $extra_stuff);
-    if ($key =~ $self->[SPLIT_REGEX])
+
+    # Is it a string or is it an array reference? Handle appropriately.
+
+    my $key_ref = ref($key);
+
+    if (!$key_ref)
+      # ($key =~ $self->[SPLIT_REGEX])
       {
 	($lower_bound, $upper_bound, $extra_stuff) =
 	  split( $self->[SPLIT_REGEX], $key );
-
-	if ( (defined($extra_stuff)) and (warnings::enabled) )
-	  {
-	    warnings::warn
-	      "Multiple separators in \`$key\' will be ignored";
-	  }
-
-	if (&{$self->[CMP_SUB]}($lower_bound, $upper_bound) > 0)
-	  # make sure $lower_bound < $upper_bound
-	  {
-	    warnings::warn "Lower and upper bounds reversed",
-	      if (warnings::enabled);
-	    ($lower_bound, $upper_bound) = ($upper_bound, $lower_bound);
-	  }
+      }
+    elsif ($key_ref eq "ARRAY")
+      {
+	($lower_bound, $upper_bound, $extra_stuff) = @$key;
       }
     else
       {
-	return ($key, $key);
+	croak "I don\'t know how to handle keys of type \`$key_ref\'";
+      }
+
+    # If only one value, treat it as 'key,key'.
+
+    if (!defined($upper_bound))
+      {
+	return ($lower_bound, $lower_bound);
+      }
+
+    # While it's faster to ignore extra stuff altogether, it's better for
+    # users of the module to get warnings for the few times they need them.
+    # If speed is an issue, comment this out.
+
+    elsif ( (defined($extra_stuff)) and (warnings::enabled) )
+      {
+	warnings::warn
+	  "Multiple separators in \`$key\' will be ignored";
+      }
+
+    # Make sure $lower_bound <= $upper_bound
+
+    if (&{$self->[CMP_SUB]}($lower_bound, $upper_bound) > 0)
+      {
+	warnings::warn "Lower and upper bounds reversed",
+	  if (warnings::enabled);
+	return ($upper_bound, $lower_bound);
       }
 
     return ($lower_bound, $upper_bound);
@@ -191,6 +216,7 @@ sub _add_node
       {
 	croak "Cannot add a NULL node";
       }
+
     unless ($root) { return $node; }
 
     if ( &{$self->[CMP_SUB]}($node->[KEY_HIGH],  $root->[KEY_LOW] ) < 0)
@@ -345,6 +371,7 @@ sub _process_args
 #   http://www.perlmonks.org/index.pl?displaytype=displaycode&node_id=43323
 
   {
+
     my $args    = shift;
     my $req     = shift;
     my $opt     = shift || [];
@@ -386,7 +413,7 @@ sub _process_args
 }
 
 
-sub TIEHASH 
+sub new
 
 # This is the Tie::RangeHash constructor (or what's called when you say
 # tie %hash, 'Tie::RangeHash')
@@ -409,9 +436,9 @@ sub TIEHASH
 
     my $self = [
        undef,      # ROOT_NODE
-       @args[2],   # CMP_SUB
-       @args[0],   # SPLIT_REGEX
-       @args[1],   # CMP_TYPE
+       $args[2],   # CMP_SUB
+       $args[0],   # SPLIT_REGEX
+       $args[1],   # CMP_TYPE
        &SEPARATOR, # SPLIT_TEXT
     ];
 
@@ -461,7 +488,8 @@ sub TIEHASH
     bless $self, $class;
   }
 
-sub FETCH
+
+sub fetch
 
 # Retrieve a node's value, based on the key using _find_node()
 
@@ -488,7 +516,7 @@ sub FETCH
     return ($node) ? $node->[VALUE] : undef;
   }
 
-sub EXISTS
+sub key_exists
 
 # Does a node exist?
 
@@ -499,7 +527,7 @@ sub EXISTS
     return (defined($node));
   }
 
-sub STORE
+sub add
 
 # Add a new node to the tree
 
@@ -508,7 +536,7 @@ sub STORE
     _add_new_node($self, _split_bounds($self, $key), $value);
   }
 
-sub CLEAR
+sub clear
 
 # Cut down the tree
 
@@ -517,7 +545,7 @@ sub CLEAR
     $self->[ROOT_NODE] = undef;
   }
 
-sub DELETE
+sub remove
 
 # Remove a node from the tree, but re-add the child nodes to the parent
 
@@ -539,9 +567,9 @@ sub DELETE
 	warnings::warn 
 	  ("Key range \`" .
 	   _join_bounds($self, $lower_bound, $upper_bound) .
-	   "\' is not a defined key range \`" .
+	   "\' is not a defined key range (found \`" .
 	   _join_bounds($self, $node->[KEY_LOW], $node->[KEY_HIGH]) .
-	   "\'" ),
+	   "\')" ),
 	     if (warnings::enabled);
 	return;	    
       }
@@ -578,6 +606,18 @@ sub DELETE
     return $node->[VALUE];
   }
 
+
+BEGIN
+  {
+    # make aliases to methods...
+    no strict;
+    *TIEHASH = \&new;
+    *STORE   = \&add;
+    *FETCH   = \&fetch;
+    *EXISTS  = \&key_exists;
+    *CLEAR   = \*clear;
+    *DELETE  = \*remove;
+  }
 
 1;
 
@@ -678,22 +718,80 @@ Note that if you define it as a regular expression, warnings and errors
 will use the default comma ',' separator (since there is no way to "reverse"
 a regular expression).
 
-Duplicate and overlapping ranges are not supported. Once a range is defined,
-it exists for the lifetime of the hash. (Future versions may allow you to
-change this behavior.)
+You can also specify array references for keys and do away with separators:
 
-Warnings are now disabled by default unless you run Perl with the -W flag.
-In theory, you should also be able to say
+  $hash{ [ qw( A C ) ] } = 1;
 
-  use warnings 'Tie::RangeHash';
+=head2 Object-Oriented Interface
 
-but this does not always seem to work. (Apparently something is broken
-with warnings.)
+C<Tie::RangeHash> has an object-oriented interface as an alternative to
+using a tied hash.
+
+=over
+
+=item new
+
+Creates a new object.
+
+  $OBJ = Tie::RangeHash->new( \%ATTR );
+
+C<%ATTR> is a hash containing the attributes described above. This is the same
+as the C<TIEHASH> method used for tied hashes.
+
+=item add
+
+Adds a new key/value pair to the object.
+
+  $OBJ->add( $KEY, $VALUE );
+
+C<$KEY> may be a string value in the form of C<low,high> or an array reference
+in the form of C<[ low, high ]>. This is the same as the C<STORE> method used
+for tied hashes.
+
+=item fetch
+
+  $VALUE = $OBJ->fetch( $KEY );
+
+Returns the value associated with C<$KEY>. (C<$KEY> may be in the form of
+C<low,high> or a key between C<low> and C<high>.) This is the same as the
+C<FETCH> method used for tied hashes.
+
+=item key_exists
+
+  if ($OBJ->key_exists( $KEY )) { .. }
+
+Returns C<true> if C<$KEY> has been defined (even if the value is C<undef>).
+(C<$KEY> is in the same form as is used by the C<fetch> method.) This is the
+same as the C<EXISTS> method used for tied hashes.
+
+It is called C<key_exists> so as not to be confused with the C<exists> keyword
+in Perl.
+
+=item clear
+
+  $OBJ->clear();
+
+Deletes all keys and values defined in the object. This is the same as the
+C<CLEAR> method used for tied hashes.
+
+=item remove
+
+  $VALUE = $OBJ->remove( $KEY );
+
+Deletes the C<$KEY> from the object and returnes the associated value.
+(C<$KEY> is in the same form as is used by the C<fetch> method.)  If
+C<$KEY> is not the exact C<low,high> range, a warning will be emitted.
+This is the same as the C<DELETE> method used for tied hashes.
+
+It is called C<remove> so as not to be confused with the C<delete>
+keyword in Perl.
+
+=back
+
+=head2 Implementation Notes
 
 Internally, the hash is actually a binary tree. Values are retrieved by
 searching the tree for nodes that where the key is within range.
-
-=head1 CAVEATS
 
 The binary-tree code is spontaneously written and has a very simple
 tree-banacing scheme. (It needs some kind of scheme since sorted data
@@ -704,7 +802,20 @@ appears to work, but has not been fully tested.
 A future version of this module may use an improved binary-tree algorithm.
 Or it may use something else.
 
-This module is incomplete for a tied hash: it has no FIRSTKEY or NEXTKEY
+=head1 KNOWN ISSUES
+
+Duplicate and overlapping ranges are not supported. Once a range is defined,
+it exists until you delete it or clear the hash.
+
+Warnings are now disabled by default unless you run Perl with the -W flag.
+In theory, you should also be able to say
+
+  use warnings 'Tie::RangeHash';
+
+but this does not always seem to work. (Apparently something is broken
+with warnings in Perl 5.6.0.)
+
+This module is incomplete for a tied hash: it has no C<FIRSTKEY> or C<NEXTKEY>
 methods (pending my figuring out a good way to implement them).
 
 =head1 AUTHOR

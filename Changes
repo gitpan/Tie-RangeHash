@@ -1,5 +1,21 @@
 Revision history for Perl extension Tie::RangeHash.
 
+0.52 14 Mar 2001
+	- tweaked the test scripts a bit
+
+0.51  5 Feb 2001
+	- array references can now be used as keys
+	- improved the working of the invalid key range message from the
+	  DELETE method
+	- tweaks of test.pl
+	- corrected outdated information and reorganized POD
+	- added objected oriented interface (aliases to the usual routines)
+
+0.50 18 Jan 2001
+        - arbitrarily changed version to 0.50 since some of the changes
+	  in 0.42 really merit at least that much of a change in version
+	  numbers...
+
 0.42 17 Jan 2001
 	- modified test suite to compare adding sequential nodes with
 	  randomly shuffled nodes in timings

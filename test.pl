@@ -13,9 +13,9 @@ BEGIN
       }
   }
 
-BEGIN { plan tests => 45, todo => [ ] }
+BEGIN { plan tests => 53, todo => [ ] }
 
-use Tie::RangeHash '0.42';
+use Tie::RangeHash '0.51';
 ok(1);
 
 use warnings 'Tie::RangeHash';
@@ -34,6 +34,19 @@ ok(1);
 
   $hash{'G,I'}  = 2;
   ok($hash{'H'}, 2);
+
+  # Using anonymous arrays as hashes
+
+  $hash{ ['Q', 'S'] } = 3;
+  ok($hash{'R'}, 3);
+
+  $hash{ [qw(T U V)] } = 4;
+  ok($hash{'T'}, 4);
+  ok($hash{'U'}, 4);
+  ok($hash{'V'}, undef);
+
+  $hash{ [qw(V)] } = 5;
+  ok($hash{'V'}, 5);
 
   # EXISTS
   ok ( exists( $hash{'B'} ));
@@ -79,7 +92,14 @@ ok(1);
   ok (!exists( $hash{'B'} ));
 
   # CLEAR
+
+  $hash{'A,C'} = 10;
   %hash = ();
+  ok(1);
+  ok (!exists( $hash{'B'} ));
+
+  # untie
+  untie %hash;
   ok(1);
 }
 
@@ -143,7 +163,7 @@ ok(1);
 
 
 {
-  print "\x23 Sequential Node Test\n";
+  print "\x23 Ordered Node Test\n";
 
   my $COUNT = 1000; # test 10,000 for serious benchmarking
 
@@ -151,15 +171,9 @@ ok(1);
 
   for (my $i=0; $i<$COUNT; $i++)
     {
-      my $key = join(",", ($i*2), ($i*2)+1); 
+      my $key = join(",", ($i<<1), ($i<<1)+1); 
       push @nodes, $key;
     }
-
-#   for (my $i=0; $i<$COUNT; $i++)
-#     {
-#       my $j = rand($COUNT);
-#       ($nodes[$i], $nodes[$j]) = ($nodes[$j], $nodes[$i]);
-#     }
 
   # numeric keys
   my %hash;
@@ -173,7 +187,6 @@ ok(1);
   for (my $i=0; $i<$COUNT; $i++)
     {
       my $key = $nodes[$i];
-#      my $key = join(",", ($i*2), ($i*2)+1); 
       $hash{$key} = $i;
     }
 
@@ -190,9 +203,9 @@ ok(1);
 
   for (my $i=0; $i<$COUNT; $i++)
     {
-      $success++, if ($hash{ ($i*2) } == $i);
-      $success++, if ($hash{ (($i*2)+1) } == $i);
-    }
+      $success++, if ($hash{ ($i<<1) } == $i);
+      $success++, if ($hash{ (($i<<1)+1) } == $i);
+    } 
   $after_frac = time();
 
   ok($success, ($COUNT*2));
@@ -206,7 +219,7 @@ ok(1);
   $success = 0;
   for (my $i=0; $i<$COUNT; $i++)
     {
-      my $key = join(",", ($i*2), ($i*2)+1); 
+      my $key = join(",", ($i<<1), ($i<<1)+1); 
       $success++, 
         if (delete( $hash{$key} ) == $i);
     }
@@ -223,41 +236,30 @@ ok(1);
 
   for (my $i=0; $i<$COUNT; $i++)
     {
-      $success++, if (!exists($hash{ ($i*2) } ) );
-      $success++, if (!exists($hash{ (($i*2)+1) }));
+      $success++, if (!exists($hash{ ($i<<1) } ) );
+      $success++, if (!exists($hash{ (($i<<1)+1) }));
     }
 
   ok($success, ($COUNT*2));
 
   %hash = ();
-}
 
-
-# Additional test of randomly-shuffled nodes
-
-{
   print "\x23 Random Node Test\n";
 
-  my $COUNT = 1000; # test 10,000 for serious benchmarking
-
-  my @nodes = ();
-
-  for (my $i=0; $i<$COUNT; $i++)
-    {
-      my $key = join(",", ($i*2), ($i*2)+1); 
-      push @nodes, $key;
-    }
-
+  # Pseudo-randomly shuffle
   for (my $i=0; $i<$COUNT; $i++)
     {
       my $j = rand($COUNT);
+
       ($nodes[$i], $nodes[$j]) = ($nodes[$j], $nodes[$i]);
     }
 
-  # numeric keys
-  my %hash;
-  tie %hash, 'Tie::RangeHash', { Type => Tie::RangeHash::TYPE_NUMBER };
-  ok(1);
+#  # numeric keys
+#
+#  untie %hash;
+#
+#  tie %hash, 'Tie::RangeHash', { Type => Tie::RangeHash::TYPE_NUMBER };
+#  ok(1);
 
   print "\x23 Testing and timing $COUNT iterations\n";
 
@@ -280,12 +282,12 @@ ok(1);
 
   $before_frac = time();
 
-  my $aux = - $COUNT;
+  my $aux = -1;
 
   for (my $i=0; $i<$COUNT; $i++)
     {
-      $success++, if ($hash{ ($i*2) } > $aux);
-      $success++, if ($hash{ (($i*2)+1) } > $aux);
+      $success++, if ($hash{ ($i<<1) } != $aux);
+      $success++, if ($hash{ (($i<<1)+1) } != $aux);
     }
   $after_frac = time();
 
@@ -294,35 +296,77 @@ ok(1);
    print "\x23 ", $success, " retrievals in ",
      sprintf('%1.3f', ($after_frac-$before_frac)), " seconds\n";
 
+  $before_frac = time();
+
+  $success = 0;
+  for (my $i=0; $i<$COUNT; $i++)
+    {
+      my $key = join(",", ($i<<1), ($i<<1)+1); 
+      $success++, 
+        if (defined(delete( $hash{$key} )));
+    }
+
+  $after_frac = time();
+
+  ok($success, $COUNT);
+
+  print "\x23 Deleted $success nodes in ", 
+    sprintf('%1.3f', ($after_frac-$before_frac)), " seconds\n";
+
+  # Verify nodes deleted
+  $success = 0;
+
+  for (my $i=0; $i<$COUNT; $i++)
+    {
+      $success++, if (!exists($hash{ ($i<<1) } ) );
+      $success++, if (!exists($hash{ (($i<<1)+1) }));
+    }
+
+  ok($success, ($COUNT*2));
+
+   %hash = ();
+
+#   print "\x23 Ordered NodeTest with ARRAY refs\n";
+
+#   @nodes = ();
+
+#   for (my $i=0; $i<$COUNT; $i++)
+#     {
+#       push @nodes, [ ($i<<1), ($i<<1)+1 ];
+#     }
+
+#   print "\x23 Testing and timing $COUNT iterations\n";
+
+#   my $before_frac = time();
+
+#   for (my $i=0; $i<$COUNT; $i++)
+#     {
+#       my $key = $nodes[$i];
+#       $hash{$key} = $i;
+#     }
+
+#   my $after_frac = time();
+
+#   ok(1);
+
+#   print "\x23 Added $COUNT nodes in ", 
+#     sprintf('%1.3f', ($after_frac-$before_frac)), " seconds\n";
+
+#   my $success = 0;
 
 #   $before_frac = time();
 
-#   $success = 0;
 #   for (my $i=0; $i<$COUNT; $i++)
 #     {
-#       my $key = join(",", ($i*2), ($i*2)+1); 
-#       $success++, 
-#         if (delete( $hash{$key} ) == $i);
+#       $success++, if ($hash{ ($i<<1) } == $i);
+#       $success++, if ($hash{ (($i<<1)+1) } == $i);
 #     }
-
 #   $after_frac = time();
-
-#   ok($success, $COUNT);
-
-#   print "\x23 Deleted $success nodes in ", 
-#     sprintf('%1.3f', ($after_frac-$before_frac)), " seconds\n";
-
-#   # Verify nodes deleted
-#   $success = 0;
-
-#   for (my $i=0; $i<$COUNT; $i++)
-#     {
-#       $success++, if (!exists($hash{ ($i*2) } ) );
-#       $success++, if (!exists($hash{ (($i*2)+1) }));
-#     }
 
 #   ok($success, ($COUNT*2));
 
-   %hash = ();
-}
+#   print "\x23 ", $success, " retrievals in ",
+#     sprintf('%1.3f', ($after_frac-$before_frac)), " seconds\n";
 
+#   %hash = ();
+}
