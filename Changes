@@ -7,4 +7,16 @@ Revision history for Perl extension Tie::RangeHash.
 	- improved binary tree (with rudimentary balancing)
 	- added CLEAR method
 
+0.30  9 Dec 2000
+	- fixed bug with missing 'require Tie::Hash'
+	- overlapping or duplicate STORE now warns rather than dies
+	- added EXISTS method
+	- fixed bug with passing range keys (low,high) to FETCH
+	- Separator can now be a string or a Regexp
+	- Use of $Tie::RangeHash::SEPARATOR deprecated
+	- various speed optimizations in adding nodes and searching tree
+	- improved comments, renamed variables
+	- improved documentation
+	- changed to work with Perl 5.005 (not tested)
+	- added test.pl to distribution
 

@@ -3,4 +3,5 @@ Makefile.PL
 MANIFEST
 RangeHash.pm
 README
+test.pl
 
