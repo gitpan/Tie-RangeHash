@@ -1,12 +1,26 @@
 
 # To-do: Improve tests
 
+require 5.005;
+
 use strict;
 use Test;
 
-BEGIN { plan tests => 1, todo => [ ] }
+BEGIN
+  {
+    eval { require Time::HiRes; import Time::HiRes qw(time) };
+    if($@)
+      {
+	warn "Unable to import Time::HiRes::time; using default time instead";
+      }
+  }
 
-use Tie::RangeHash '0.30';
+BEGIN { plan tests => 42, todo => [ ] }
+
+use Tie::RangeHash '0.40';
+ok(1);
+
+use warnings 'Tie::RangeHash';
 ok(1);
 
 {
@@ -19,18 +33,29 @@ ok(1);
   $hash{'A,C'}  = 1;
   ok(1);
 
+  $hash{'G,I'}  = 2;
+  ok($hash{'H'}, 2);
+
   # EXISTS
   ok ( exists( $hash{'B'} ));
   ok (!exists( $hash{'D'} ));
+
+  $hash{'D,F'} = undef;
+  ok ( exists( $hash{'D'} ));
+  ok (! $hash{'D'} );
 
   # STORE overlapping
   $hash{'AA,B'} = 2;
   ok($hash{'AA'} != 2);
 
   # check ranges
-  ok( $hash{'A,C'} == 1 );
-  ok( $hash{'A,B'} == 1 );
-  ok( $hash{'B,C'} == 1 );
+  ok( $hash{'A,C'}, 1 );
+  ok( $hash{'A,B'}, 1 );
+  ok( $hash{'B,C'}, 1 );
+
+  # redfinition
+  $hash{'A,C'} = 3;
+  ok( $hash{'B'} != 3);
 
   # bad ranges
   ok( !defined($hash{'B,D'}) ); # overlap before
@@ -43,7 +68,18 @@ ok(1);
   ok( !defined($hash{'CC'}) );
   ok( !defined($hash{'X'}) );
 
-  #CLEAR
+  # DELETE
+  ok(!defined(delete( $hash{'H'} ) ) );
+  ok(!defined(delete( $hash{'H,J'} ) ) );
+  ok(!defined(delete( $hash{'F,H'} ) ) );
+
+  ok(delete( $hash{'G,I'} ), 2);
+  ok (!exists( $hash{'H'} ));
+
+  ok(delete( $hash{'A,C'} ), 1);
+  ok (!exists( $hash{'B'} ));
+
+  # CLEAR
   %hash = ();
   ok(1);
 }
@@ -59,7 +95,9 @@ ok(1);
   ok(1);
 
   # returns the correct value
-  ok($hash{'B'} == 1);
+  ok($hash{'B'}, 1);
+
+  %hash = ();
 }
 
 {
@@ -73,13 +111,13 @@ ok(1);
   ok(1);
 
   # returns the correct value
-  ok($hash{'B'} == 1);
+  ok($hash{'B'}, 1);
+
+  %hash = ();
 }
 
 {
   # tie with user-defined compare
-
-
 
   sub my_order {
     my ($A, $B) = @_;
@@ -96,20 +134,20 @@ ok(1);
   ok(1);
 
   # returns the correct value
-  ok($hash{'2'} eq 'A');
+  ok($hash{'2'}, 'A');
+
+  %hash = ();
 }
 
 
 {
-  use Time::HiRes qw(time);
-
   # numeric keys
   my %hash;
   tie %hash, 'Tie::RangeHash', { Type => Tie::RangeHash::TYPE_NUMBER };
   ok(1);
 
-  my $COUNT = 5000;
-  my $before_frac = time;
+  my $COUNT = 1000;
+  my $before_frac = time();
 
   for (my $i=0; $i<$COUNT; $i++)
     {
@@ -117,27 +155,58 @@ ok(1);
       $hash{$key} = $i;
     }
 
-  my $after_frac = time;
+  my $after_frac = time();
 
   ok(1);
 
   print "\x23 Added $COUNT nodes in ", 
-    sprintf('%1.4f', ($after_frac-$before_frac)), " seconds\n";
+    sprintf('%1.3f', ($after_frac-$before_frac)), " seconds\n";
 
   my $success = 0;
 
-  $before_frac = time;
+  $before_frac = time();
 
   for (my $i=0; $i<$COUNT; $i++)
     {
       $success++, if ($hash{ ($i*2) } == $i);
+      $success++, if ($hash{ (($i*2)+1) } == $i);
+    }
+  $after_frac = time();
+
+  ok($success, ($COUNT*2));
+
+  print "\x23 ", $success, " retrievals in ",
+    sprintf('%1.3f', ($after_frac-$before_frac)), " seconds\n";
+
+
+  $before_frac = time();
+
+  $success = 0;
+  for (my $i=0; $i<$COUNT; $i++)
+    {
+      my $key = join(",", ($i*2), ($i*2)+1); 
+      $success++, 
+        if (delete( $hash{$key} ) == $i);
     }
 
-  $after_frac = time;
-  print "\x23 $COUNT retrievals in ",
-    sprintf('%1.4f', ($after_frac-$before_frac)), " seconds\n";
+  $after_frac = time();
 
-  ok($success == $COUNT);
+  ok($success, $COUNT);
+
+  print "\x23 Deleted $success nodes in ", 
+    sprintf('%1.3f', ($after_frac-$before_frac)), " seconds\n";
+
+  # Verify nodes deleted
+  $success = 0;
+
+  for (my $i=0; $i<$COUNT; $i++)
+    {
+      $success++, if (!exists($hash{ ($i*2) } ) );
+      $success++, if (!exists($hash{ (($i*2)+1) }));
+    }
+
+  ok($success, ($COUNT*2));
+
+  %hash = ();
 }
-
 

@@ -7,9 +7,10 @@ REQUIREMENTS
 
     It uses the following modules:
 
-      Carp                  # this may change in the future
+      Carp
       Tie::Hash
-      Time::HiRes           # for test.pl
+
+    The test suite will use `Time::HiRes' if it is available.
 
   Installation
 
@@ -19,6 +20,20 @@ REQUIREMENTS
       make
       make test
       make install
+
+HISTORY
+    Changes since Tie::RangeHash v0.30:
+
+    0.40 11 Dec 2000
+	- fixed bug where EXISTS method missed $hash{'low,high'} = undef
+	- some minor optimizations
+	- corrected outdated descriptions in the comments
+	- added DELETE method
+	- _find_node() become _find_node_parent for use w/DELETE method
+	- fixed bug with adding undef node
+	- warnings are now disabled unless Perl is run with the -w flag
+	- test.pl will only use Time::HiRes if it is available
+	- other misc. changes to test.pl
 
 SYNOPSIS
       use Tie::RangeHash;
@@ -89,11 +104,20 @@ DESCRIPTION
        };
 
     Note that if you define it as a regular expression, warnings and errors
-    will use the default comma ',' separator.
+    will use the default comma ',' separator (since there is no way to
+    "reverse" a regular expression).
 
     Duplicate and overlapping ranges are not supported. Once a range is
     defined, it exists for the lifetime of the hash. (Future versions may
     allow you to change this behavior.)
+
+    Warnings are now disabled by default unless you run Perl with the -W
+    flag. In theory, you should also be able to say
+
+      use warnings 'Tie::RangeHash';
+
+    but this does not always seem to work. (Apparently something is broken
+    with warnings.)
 
     Internally, the hash is actually a binary tree. Values are retrieved by
     searching the tree for nodes that where the key is within range.
@@ -107,8 +131,8 @@ CAVEATS
     A future version of this module may use an improved binary-tree
     algorithm. Or it may use something else.
 
-    This module is incomplete... It needs the DELETE, FIRSTKEY, NEXTKEY, and
-    (maybe) DESTROY methods.
+    This module is incomplete... It needs the FIRSTKEY, NEXTKEY, and (maybe)
+    DESTROY methods.
 
 AUTHOR
     Robert Rothenberg <rrwo@cpan.org>
@@ -117,4 +141,3 @@ LICENSE
     Copyright (c) 2000 Robert Rothenberg. All rights reserved. This program
     is free software; you can redistribute it and/or modify it under the
     same terms as Perl itself.
-

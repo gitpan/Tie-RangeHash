@@ -1,11 +1,15 @@
 Revision history for Perl extension Tie::RangeHash.
 
-0.10  5 Dec 2000
-	- original version created
-
-0.20  6 Dec 2000
-	- improved binary tree (with rudimentary balancing)
-	- added CLEAR method
+0.40 11 Dec 2000
+	- fixed bug where EXISTS method missed $hash{'low,high'} = undef
+	- some minor optimizations
+	- corrected outdated descriptions in the comments
+	- added DELETE method
+	- _find_node() become _find_node_parent for use w/DELETE method
+	- fixed bug with adding undef node
+	- warnings are now disabled unless Perl is run with the -w flag
+	- test.pl will only use Time::HiRes if it is available
+	- other misc. changes to test.pl
 
 0.30  9 Dec 2000
 	- fixed bug with missing 'require Tie::Hash'
@@ -19,4 +23,11 @@ Revision history for Perl extension Tie::RangeHash.
 	- improved documentation
 	- changed to work with Perl 5.005 (not tested)
 	- added test.pl to distribution
+
+0.20  6 Dec 2000
+	- improved binary tree (with rudimentary balancing)
+	- added CLEAR method
+
+0.10  5 Dec 2000
+	- original version created
 
