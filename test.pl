@@ -1,7 +1,5 @@
 
-# To-do: Improve tests
-
-require 5.005;
+require 5.6.0;
 
 use strict;
 use Test;
@@ -17,10 +15,13 @@ BEGIN
 
 BEGIN { plan tests => 42, todo => [ ] }
 
-use Tie::RangeHash '0.40';
+use Tie::RangeHash '0.41';
 ok(1);
 
 use warnings 'Tie::RangeHash';
+
+# $Tie::RangeHash::DEBUG = 1;
+
 ok(1);
 
 {
@@ -146,7 +147,10 @@ ok(1);
   tie %hash, 'Tie::RangeHash', { Type => Tie::RangeHash::TYPE_NUMBER };
   ok(1);
 
-  my $COUNT = 1000;
+  my $COUNT = 1000; # test 10,000 for serious benchmarking
+
+  print "\x23 Testing and timing $COUNT iterations\n";
+
   my $before_frac = time();
 
   for (my $i=0; $i<$COUNT; $i++)

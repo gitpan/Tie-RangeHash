@@ -1,44 +1,73 @@
 package Tie::RangeHash;
 
-require 5.005;
+require 5.005_62;
 
 use strict;
 
 use warnings::register 'Tie::RangeHash';
+use Carp;
 
-require Carp;
-require Tie::Hash;
+our $VERSION   = '0.41';
+our @ISA       = qw( );
 
-use vars qw($VERSION $SEPARATOR @ISA);
+# my $VERSION = '0.41';
+# my @ISA = ( );
+# my $SEPARATOR;
+# my $DEBUG   = 0;
 
-$VERSION = '0.40';
-
-@ISA = qw(Tie::Hash);
-
-sub TYPE_STRING { 1; }                  # Some constants for Tie::RangeHash
-sub TYPE_NUMBER { 2; }
+use integer;
 
 BEGIN
   {
-    # Default separator character ... Ceveat: use of this outside of the
-    # module is deprecated! Define the SEPARATOR when using tie instead.
+    # Define public constants
 
-    *SEPARATOR = \ ",";
+    *TYPE_STRING = sub () { 1 };        # Indicates value is a string
+    *TYPE_NUMBER = sub () { 2 };        # Indicates value is a number
+
+    # Define internal constants
+
+    *SEPARATOR   = sub () { "," };      # Default separator character
+
+    # Node structure indices. See _new_node() below for more details.
+
+    *KEY_LOW     = sub () { 0 };        # Lower bound of node's key
+    *KEY_HIGH    = sub () { 1 };        # Upper bound of node's key
+    *NODE_LEFT   = sub () { 2 };        # Child node to the left
+    *NODE_RIGHT  = sub () { 3 };        # Child node to the right
+    *COUNT_LEFT  = sub () { 4 };        # Number of children to the left
+    *COUNT_RIGHT = sub () { 5 };        # Number of children to the right
+    *VALUE       = sub () { 6 };        # Value of the node
   }
 
 sub import
+
+# A rudimentary 'import' method for the module (Some day we''ll do something
+# more important with this)
+
   {
-    my $class = shift;
-    
+    my $class       = shift;
+    my $version_req = shift;
+    if ($version_req gt $VERSION)
+      {
+	croak "Using Tie::RangeHash $VERSION when $version_req was requested";
+      }
   }
 
-sub _join_bounds                        # generate a key from bounds
+sub _join_bounds
+
+# Generate a 'low,high' key from bounds (used mainly for error messages)
+
   {
     my ($self, $lower_bound, $upper_bound) = @_;
     join($self->{SEPARATOR}, $lower_bound, $upper_bound);
   }
 
-sub _split_bounds                       # generate bounds from a key
+sub _split_bounds
+
+# Split a 'low,high' key into bounds. If only one value is given, we use
+# 'key,key'. A key in the form of 'high,low' is changed to 'low,high' and
+# a warning is given (maybe it should be fatal?).
+
   {
     my ($self, $key) = @_;
 
@@ -48,11 +77,10 @@ sub _split_bounds                       # generate bounds from a key
 	($lower_bound, $upper_bound, $extra_stuff) =
 	  split( $self->{SPLIT}, $key );
 
-	if (defined($extra_stuff))
+	if ( (defined($extra_stuff)) and (warnings::enabled) )
 	  {
 	    warnings::warn
-	      "Multiple separators in \`$key\' will be ignored",
-	      if (warnings::enabled);
+	      "Multiple separators in \`$key\' will be ignored";
 	  }
 
 	if (&{$self->{COMPARE}}($lower_bound, $upper_bound) > 0)
@@ -71,144 +99,196 @@ sub _split_bounds                       # generate bounds from a key
     return ($lower_bound, $upper_bound);
   }
 
-sub _new_node                           # Create a new node
+
+
+sub _new_node
+
+# Create a new node given lower and upper key bounds and a value.  (The node is
+# an anonymous array with each value stored in the indices defined in the BEGIN
+# block above.) The node's structure is as follows:
+#
+# KEY_LOW, KEY_HIGH are the node's lower and upper key bounds, respectively.
+#
+# NODE_LEFT, NODE_RIGHT are the node's children. KEY_HIGH on NODE_LEFT must
+# be less than KEY_LOW, and KEY_LOW on NODE_RIGHT must be greater than
+# KEY_HIGH.
+#
+# COUNT_LEFT, COUNT_RIGHT are the count of children on the left and right
+# nodes respectively. We use these values for keeping the tree balanced.
+# (Without tree balancing, if we add too many nodes in sequential order we'll
+# get a stack overflow and recursion error.) See comments in _add_node()
+# for a description of the tree-balancing algorithm used.
+#
+# VALUE is the node's value.
+
   {
     my ($self, $lower_bound, $upper_bound, $value) = @_;
 
     unless ( (defined($lower_bound)) and (defined($upper_bound)))
       {
-	Carp::croak "Cannot create a node without valid keys";
+	croak "Cannot create a node without valid keys";
       }
 
-    return {
-      KEY_LOW    => $lower_bound,       # lower bound
-      KEY_HIGH   => $upper_bound,       # upper bound
-      VALUE      => $value,             # value of the node
-      NODE_LEFT  => undef,              # left node (lower than lower bound)
-      NODE_RIGHT => undef,              # right node (higher than upper bound)
-      COUNT_LEFT => 0,                  # count of child nodes to left
-      COUNT_RIGHT => 0,                 # count of child nodes to right
-    };
+    # Caveat: if we change the order of the index constants then we need
+    #         to change the order here (pseudo-hashes would be nicer but
+    #         they're slow, and defining each array element as different
+    #         lines would probably slow down adding nodes slightly...)
+
+    return [
+	    $lower_bound, # KEY_LOW
+	    $upper_bound, # KEY_HIGH
+	    undef,        # NODE_LEFT
+	    undef,        # NODE_RIGHT
+	    0,            # COUNT_LEFT
+	    0,            # COUNT_RIGHT
+	    $value        # VALUE
+	   ];
+
   }
 
 
-sub _count_left                         # Update count of children on left
+sub _count_left
+
+# Updates the count of children on the left node. Assumes the counts on the
+# left node are updated.
+
   {
     my ($node) = @_;
-    $node->{COUNT_LEFT} = ($node->{NODE_LEFT}) ?
-      1 + $node->{NODE_LEFT}->{COUNT_LEFT} +
-	$node->{NODE_LEFT}->{COUNT_RIGHT} : 0;
+
+    $node->[COUNT_LEFT] = ($node->[NODE_LEFT]) ?
+      1 + $node->[NODE_LEFT]->[COUNT_LEFT] +
+	$node->[NODE_LEFT]->[COUNT_RIGHT] : 0;
   }
 
-sub _count_right                        # Update count of children on left
+sub _count_right
+
+# Updates the count of children on the right node. Assumes the counts on the
+# right node are updated.
+
   {
     my ($node) = @_;
-    $node->{COUNT_RIGHT} = ($node->{NODE_RIGHT}) ?
-      1 + $node->{NODE_RIGHT}->{COUNT_LEFT} +
-	$node->{NODE_RIGHT}->{COUNT_RIGHT} : 0;
+
+    $node->[COUNT_RIGHT] = ($node->[NODE_RIGHT]) ?
+      1 + $node->[NODE_RIGHT]->[COUNT_LEFT] +
+	$node->[NODE_RIGHT]->[COUNT_RIGHT] : 0;
   }
 
-sub _add_node                           # Recursively add a new node to tree
+sub _add_node
+
+# Recursively add a node to the tree, then balance the child nodes if needed.
+# We return the value of the 'root' that we're adding the node to.  This
+# simplifies adding and balancing the tree.
+
   {
     my ($self, $root, $node) = @_;
 
     unless ($node)
       {
-	Carp::croak "Cannot add a NULL node";
+	croak "Cannot add a NULL node";
       }
     unless ($root) { return $node; }
 
-    if ( &{$self->{COMPARE}}($node->{KEY_HIGH},  $root->{KEY_LOW} ) < 0)
+    if ( &{$self->{COMPARE}}($node->[KEY_HIGH],  $root->[KEY_LOW] ) < 0)
       {
-	$root->{NODE_LEFT} = _add_node( $self, $root->{NODE_LEFT}, $node );
-	_count_left($root);
+	$root->[NODE_LEFT] = $self->_add_node( $root->[NODE_LEFT], $node );
+	_count_left( $root );
       }
-    elsif (&{$self->{COMPARE}}($node->{KEY_LOW}, $root->{KEY_HIGH}) > 0)
+    elsif (&{$self->{COMPARE}}($node->[KEY_LOW], $root->[KEY_HIGH]) > 0)
       {
-	$root->{NODE_RIGHT}  = _add_node( $self, $root->{NODE_RIGHT}, $node );
-	_count_right($root);
+	$root->[NODE_RIGHT]  = $self->_add_node( $root->[NODE_RIGHT], $node );
+	_count_right( $root );
       }
     else
       {
 	# Hmmm... should we warn or die here?
 	warnings::warn
 	  ("Overlapping key range: cannot add range \`" .
-	   $self->_join_bounds($node->{KEY_LOW}, $node->{KEY_HIGH}) .
+	   $self->_join_bounds($node->[KEY_LOW], $node->[KEY_HIGH]) .
 	   "\' because there exists \`" .
-	   $self->_join_bounds($root->{KEY_LOW}, $root->{KEY_HIGH}) . "\'"),
+	   $self->_join_bounds($root->[KEY_LOW], $root->[KEY_HIGH]) . "\'"),
 	     if (warnings::enabled);
 
       }
 
-#    unless ($self->{UNBALANCED}) # disable tree balancing...
-#      {
 	# Use a bastardized AVL algorithm to keep the tree balanced, so that
 	#                   1        3            2
         # branches such as:  2  or  2   become:  1 3
 	#                     3    1
 	#
-	my $balance = $root->{COUNT_RIGHT} - $root->{COUNT_LEFT};
+	my $balance = $root->[COUNT_RIGHT] - $root->[COUNT_LEFT];
 
 	if ($balance > 1)
 	  {
-	    my $right = $root->{NODE_RIGHT};
+	    my $right = $root->[NODE_RIGHT];
 
-	    $root->{NODE_RIGHT} = $right->{NODE_LEFT};
-	    $right->{NODE_LEFT} = $root;
+	    $root->[NODE_RIGHT] = $right->[NODE_LEFT];
+	    $right->[NODE_LEFT] = $root;
 
-	    _count_right($root);
-	    _count_left($right);
+	    _count_right( $root );
+	    _count_left( $right );
 
 	    return $right;
 	  }
 	elsif ($balance < -1)
 	  {
-	    my $left = $root->{NODE_LEFT};
+	    my $left = $root->[NODE_LEFT];
 
-	    $root->{NODE_LEFT}  = $left->{NODE_RIGHT};
-	    $left->{NODE_RIGHT} = $root;
+	    $root->[NODE_LEFT]  = $left->[NODE_RIGHT];
+	    $left->[NODE_RIGHT] = $root;
 
-	    _count_left($root);
-	    _count_right($left);
+	    _count_left( $root );
+	    _count_right( $left );
 	    
 	    return $left;
 	  }
-#      }
 
     return $root;
   }
 
-sub _add_new_node                       # Add a new node from the root
+sub _add_new_node
+
+# Add a new node to the root of the tree (a wrapper for _add_node, actually)
+
   {
     my ($self, $lower_bound, $upper_bound, $value) = @_;
     # Caveats: assumes $lower_bound < $upper_bound!
 
-    $self->{ROOT} = _add_node($self, $self->{ROOT},
-        _new_node($self, $lower_bound, $upper_bound, $value)
+    $self->{ROOT} = $self->_add_node(
+        $self->{ROOT},
+        $self->_new_node( $lower_bound, $upper_bound, $value )
     );
   }
 
 
 
-sub _find_node_parent                   # recursively find a node & parent
+sub _find_node_parent
+
+# Given a root node and lower and upper bounds, it returns a list with a
+# reference to the node and its parent if a node is found where the lower
+# and upper bounds are within the lower and upper bounds of that node,
+# or it returns 'undef' if no node is found.
+#
+# Caveats: assumes $parent is actually the parent node of $root; use
+# 'undef' when searching from the root node.
+#
+# The reason we return the parent node as well is to allow the DELETE
+# method to use this routine, rather than having two similar routines
+# or keeping a pointer to each node's parent (which makes adding and
+# balancing more cumbersome). The performance hit for this is minimal.
+
   {
-
-    # We now also find the node and the parent node; the optimization hit
-    # is minimal compared to the advantage of having one routine that can
-    # return more info and be used by the DELETE method
-
     my ($self, $root, $parent, $lower_bound, $upper_bound) = @_;
 
     unless ($root) { return; }
 
-    if (&{$self->{COMPARE}}($upper_bound, $root->{KEY_LOW})<0)
+    if (&{$self->{COMPARE}}($upper_bound, $root->[KEY_LOW])<0)
       {
-	return _find_node_parent($self, $root->{NODE_LEFT}, $root,
+	return _find_node_parent($self, $root->[NODE_LEFT], $root,
 			  $lower_bound, $upper_bound);
       }
-    elsif (&{$self->{COMPARE}}($lower_bound, $root->{KEY_HIGH})>0)
+    elsif (&{$self->{COMPARE}}($lower_bound, $root->[KEY_HIGH])>0)
       {
-	return _find_node_parent($self, $root->{NODE_RIGHT}, $root,
+	return _find_node_parent($self, $root->[NODE_RIGHT], $root,
 			  $lower_bound, $upper_bound);
       }
     else
@@ -220,15 +300,15 @@ sub _find_node_parent                   # recursively find a node & parent
 
 	if ((&{$self->{COMPARE}}($lower_bound, $upper_bound))
 	  and (
-	       (&{$self->{COMPARE}}($lower_bound, $root->{KEY_LOW}) < 0)
-	       or (&{$self->{COMPARE}}($upper_bound, $root->{KEY_HIGH}) > 0)
+	       (&{$self->{COMPARE}}($lower_bound, $root->[KEY_LOW]) < 0)
+	       or (&{$self->{COMPARE}}($upper_bound, $root->[KEY_HIGH]) > 0)
 	      ) )
 	  {
 	    warnings::warn
 	      ("Key range \`" . 
 	       _join_bounds($self, $lower_bound, $upper_bound) .
 	       "\' exceeds defined key range \`" .
-	       _join_bounds($self, $root->{KEY_LOW}, $root->{KEY_HIGH}) .
+	       _join_bounds($self, $root->[KEY_LOW], $root->[KEY_HIGH]) .
 	       "\'" ),
 		 if (warnings::enabled);
 	    return;
@@ -248,18 +328,86 @@ sub _find_node_parent                   # recursively find a node & parent
   }
 
 
-sub TIEHASH                             # Tie::RangeHash constructor
+
+sub _process_args
+
+# Takes an anon hash of args, an anon array of required fields,
+# an optional anon array of optional args, and an optional
+# anon hash of defaults.  Returns an array of the determined
+# values.
+#
+# Snarfed from
+#   http://www.perlmonks.org/index.pl?displaytype=displaycode&node_id=43323
+
+  {
+    my $args    = shift;
+    my $req     = shift;
+    my $opt     = shift || [];
+    my $default = shift || {};
+    my @res;
+    foreach my $arg (@$req)
+      {
+	if (exists $args->{$arg}) {
+	  push @res, $args->{$arg};
+	  delete $args->{$arg};
+	}
+	else
+	  {
+	    croak("Missing required argument $arg");
+	  }
+      }
+    foreach my $arg (@$opt)
+      {
+	if (exists $args->{$arg})
+	  {
+	    push @res, $args->{$arg};
+	    delete $args->{$arg};
+	  }
+	else
+	  {
+	    push @res, $default->{$arg};
+	  }
+      }
+
+  if (%$args)
+    {
+      my $bad = join ", ", sort keys %$args;
+      croak("Unrecognized arguments: $bad\n");
+    }
+  else
+    {
+      return @res;
+    }
+}
+
+
+sub TIEHASH 
+
+# This is the Tie::RangeHash constructor (or what's called when you say
+# tie %hash, 'Tie::RangeHash')
+
   {
     my ($class, $attributes) = @_;
 
+    my $DEFAULT_SEPARATOR = SEPARATOR;
+
+    my @args = _process_args(
+       $attributes,
+       [ ],
+       [ qw( Separator Type Comparison ) ],
+       {
+	Separator  => qr/$DEFAULT_SEPARATOR/,
+	Type       => TYPE_STRING,
+        Comparison => undef,
+       }
+    );
+
     my $self = {
-      ROOT      => undef,                               # root node
-      SPLIT     => $attributes->{Separator} ||          # default Regexp
-		     qr/$SEPARATOR/,
-      SEPARATOR => $SEPARATOR,                          # separator string
-      TYPE      => $attributes->{Type}  || TYPE_STRING, # comparison type
-      COMPARE   => $attributes->{Comparison},           # compairson subroutine
-#     UNBALANCED => $attributes->{Unblanaced},          # disable balanced tree
+	ROOT      => undef,             # root note reference
+        SPLIT     => @args[0],          # the Regexp used to split
+        SEPARATOR => SEPARATOR,        # string representation of separator
+        TYPE      => @args[1],          # the value type
+        COMPARE   => @args[2],          # the compairson routine
     };
 
     my $split_ref = ref($self->{SPLIT});
@@ -272,11 +420,11 @@ sub TIEHASH                             # Tie::RangeHash constructor
       }
     elsif ($split_ref eq "Regexp")
       {
-	$self->{SEPARATOR} = $SEPARATOR; # so we have at least something! 
+	$self->{SEPARATOR} = SEPARATOR; # so we have at least something! 
       }
     else
       {
-	Carp::croak
+	croak
 	  "\`Separator\' attribute must be a SCALAR or Regexp";
       }
 
@@ -284,7 +432,7 @@ sub TIEHASH                             # Tie::RangeHash constructor
       {
 	if (ref($self->{COMPARE}) ne "CODE")
 	  {
-	    Carp::croak
+	    croak
 	      "\`Comparison\' must be a CODE reference";
 	  }
       }
@@ -307,7 +455,10 @@ sub TIEHASH                             # Tie::RangeHash constructor
     bless $self, $class;
   }
 
-sub FETCH                               # Retrieve a node from tree
+sub FETCH
+
+# Retrieve a node's value, based on the key using _find_node()
+
   {
     my ($self, $key) = @_;
 
@@ -326,34 +477,44 @@ sub FETCH                               # Retrieve a node from tree
     # are different it will check if the bounds are out of the node's
     # range.)
 
-    my ($node, $parent) =
-      _find_node_parent($self, $self->{ROOT}, undef,
-			_split_bounds($self, $key));
-    return ($node) ? $node->{VALUE} : undef;
+    my $node = ( _find_node_parent($self, $self->{ROOT}, undef,
+				   _split_bounds($self, $key)) )[0];
+    return ($node) ? $node->[VALUE] : undef;
   }
 
-sub EXISTS                              # Check if a node exists
+sub EXISTS
+
+# Does a node exist?
+
   {
     my ($self, $key) = @_;
-    my ($node, $parent) =
-      _find_node_parent($self, $self->{ROOT}, undef,
-			_split_bounds($self, $key));
+    my $node = ( _find_node_parent($self, $self->{ROOT}, undef,
+				   _split_bounds($self, $key)) )[0];
     return (defined($node));
   }
 
-sub STORE                               # Add a node
+sub STORE
+
+# Add a new node to the tree
+
   {
     my ($self, $key, $value) = @_;
     _add_new_node($self, _split_bounds($self, $key), $value);
   }
 
-sub CLEAR                               # Wipe tree
+sub CLEAR
+
+# Cut down the tree
+
   {
     my ($self) = @_;
     $self->{ROOT} = undef;
   }
 
 sub DELETE
+
+# Remove a node from the tree, but re-add the child nodes to the parent
+
   {
     my ($self, $key) = @_;
 
@@ -366,14 +527,14 @@ sub DELETE
 
     unless ($node) { return; } # if node not found, nothing to delete
 
-    if ((&{$self->{COMPARE}}($lower_bound, $node->{KEY_LOW})) or
-	(&{$self->{COMPARE}}($upper_bound, $node->{KEY_HIGH})))
+    if ((&{$self->{COMPARE}}($lower_bound, $node->[KEY_LOW])) or
+	(&{$self->{COMPARE}}($upper_bound, $node->[KEY_HIGH])))
       {
 	warnings::warn 
 	  ("Key range \`" .
 	   _join_bounds($self, $lower_bound, $upper_bound) .
-	   "\' is not a the defined key range \`" .
-	   _join_bounds($self, $node->{KEY_LOW}, $node->{KEY_HIGH}) .
+	   "\' is not a defined key range \`" .
+	   _join_bounds($self, $node->[KEY_LOW], $node->[KEY_HIGH]) .
 	   "\'" ),
 	     if (warnings::enabled);
 	return;	    
@@ -381,51 +542,49 @@ sub DELETE
 
     if ($parent)
       {
-	if (&{$self->{COMPARE}}($parent->{KEY_HIGH}, $node->{KEY_LOW})<0)
+	if (&{$self->{COMPARE}}($parent->[KEY_HIGH], $node->[KEY_LOW])<0)
 	  {
 
-	    $parent->{NODE_RIGHT} = $node->{NODE_RIGHT};
+	    $parent->[NODE_RIGHT] = $node->[NODE_RIGHT];
 
-	    $parent->{NODE_RIGHT} =
-	      _add_node($self, $parent->{NODE_RIGHT}, $node->{NODE_LEFT}),
-	        if ($node->{NODE_LEFT});
+	    $parent->[NODE_RIGHT] =
+	      _add_node($self, $parent->[NODE_RIGHT], $node->[NODE_LEFT]),
+	        if ($node->[NODE_LEFT]);
 	      }
-	elsif (&{$self->{COMPARE}}($parent->{KEY_LOW},
-				   $node->{KEY_HIGH})>0)
+	elsif (&{$self->{COMPARE}}($parent->[KEY_LOW],
+				   $node->[KEY_HIGH])>0)
 	  {
 
-	    $parent->{NODE_LEFT} = $node->{NODE_LEFT};
+	    $parent->[NODE_LEFT] = $node->[NODE_LEFT];
 
-	    $parent->{NODE_LEFT} =
-	      _add_node($self, $parent->{NODE_LEFT}, $node->{NODE_RIGHT}),
-	        if ($node->{NODE_RIGHT});
+	    $parent->[NODE_LEFT] =
+	      _add_node($self, $parent->[NODE_LEFT], $node->[NODE_RIGHT]),
+	        if ($node->[NODE_RIGHT]);
 	  }
       }
     else
       {	
-	$self->{ROOT} = $node->{NODE_LEFT};
-	$self->{ROOT} = _add_node($self, $self->{ROOT}, $node->{NODE_RIGHT}),
-	  if ($node->{NODE_RIGHT});
+	$self->{ROOT} = $node->[NODE_LEFT];
+	$self->{ROOT} = _add_node($self, $self->{ROOT}, $node->[NODE_RIGHT]),
+	  if ($node->[NODE_RIGHT]);
       }
-    return $node->{VALUE};
+    return $node->[VALUE];
   }
 
+
 1;
+
 __END__
 
 =head1 NAME
 
-Tie::RangeHash - Implements "range hashes" in Perl
+Tie::RangeHash - Allows hashes to associate values with a range of keys
 
 =head1 REQUIREMENTS
 
-C<Tie::RangeHash> is written for Perl 5.005_62 or 5.6.0 and tested on the
-latter. It should work in Perl 5.005, although I have not tested it.
+C<Tie::RangeHash> is written for and tested on Perl 5.6.0.
 
-It uses the following modules:
-
-  Carp
-  Tie::Hash
+It uses only standard modules.
 
 The test suite will use C<Time::HiRes> if it is available.
 
@@ -532,13 +691,14 @@ searching the tree for nodes that where the key is within range.
 The binary-tree code is spontaneously written and has a very simple
 tree-banacing scheme. (It needs some kind of scheme since sorted data
 will produce a very lopsided tree which is no more efficient than an
-array.) It appears to work, but has not been fully tested.
+array; for large amounts of data it will recurse too deeply.) It
+appears to work, but has not been fully tested.
 
 A future version of this module may use an improved binary-tree algorithm.
 Or it may use something else.
 
-This module is incomplete... It needs the FIRSTKEY, NEXTKEY,
-and (maybe) DESTROY methods.
+This module is incomplete for a Tied Hash: it has no FIRSTKEY or NEXTKEY
+methods (pending my figuring out a good way to implement them).
 
 =head1 AUTHOR
 

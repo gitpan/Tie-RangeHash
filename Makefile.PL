@@ -4,5 +4,9 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     'NAME'		=> 'Tie::RangeHash',
     'VERSION_FROM'	=> 'RangeHash.pm', # finds $VERSION
-    'PREREQ_PM'		=> {}, # e.g., Module::Name => 1.1
+    'PREREQ_PM'		=> {},
+  ($] ge '5.005') ? (
+    'AUTHOR'   => 'Robert Rothenberg (rrwo@cpan.org)',
+    'ABSTRACT' => 'Allows hashes to associate values with a range of keys',
+  ) : (),
 );
