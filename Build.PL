@@ -18,6 +18,7 @@ my $build = Module::Build->new
 #      )],
      create_makefile_pl => 'traditional',
      dist_author        => 'Robert Rothenberg <rrwo at cpan.org>',
+     sign => 1,
 );
 
 $build->create_build_script;

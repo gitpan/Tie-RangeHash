@@ -29,6 +29,9 @@ REQUIREMENTS
 HISTORY
     Changes since Tie::RangeHash 1.00_2
 
+    1.02   Mon Dec 20 2004
+	- fixed SIGNATURE issue
+
     1.01   Fri Dec 17 2004
 	- uses base
 	- added SIGNATURE

@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name: Tie-RangeHash
-version: 1.01
+version: 1.02
 author:
   - Robert Rothenberg <rrwo at cpan.org>
 abstract: |-
@@ -16,17 +16,17 @@ recommends:
 provides:
   Algorithm::SkipList::NumericRangeNode:
     file: lib/Tie/RangeHash.pm
-    version: 1.01
+    version: 1.02
   Algorithm::SkipList::StringRangeNode:
     file: lib/Tie/RangeHash.pm
-    version: 1.01
+    version: 1.02
   Tie::RangeHash:
     file: lib/Tie/RangeHash.pm
-    version: 1.01
+    version: 1.02
   Tie::RangeHash::TYPE_NUMBER:
     file: lib/Tie/RangeHash.pm
-    version: 1.01
+    version: 1.02
   Tie::RangeHash::TYPE_STRING:
     file: lib/Tie/RangeHash.pm
-    version: 1.01
-generated_by: Module::Build version 0.2605
+    version: 1.02
+generated_by: Module::Build version 0.2607

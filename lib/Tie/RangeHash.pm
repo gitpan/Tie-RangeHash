@@ -175,7 +175,7 @@ use Carp;
 # no Carp::Assert;
 use Algorithm::SkipList 1.00;
 
-our $VERSION   = '1.01';
+our $VERSION   = '1.02';
 # $VERSION = eval $VERSION;
 
 use constant TYPE_STRING => 'Algorithm::SkipList::StringRangeNode';
