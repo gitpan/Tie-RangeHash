@@ -1,6 +1,17 @@
 Revision history for Perl extension Tie::RangeHash.
 
+0.42 17 Jan 2001
+	- modified test suite to compare adding sequential nodes with
+	  randomly shuffled nodes in timings
+	- changed 'die' to 'croak' in TIEHASH method
+	- changed internal object from hash to array
+	- other optimizations
+	- fixed typos in comments and POD
+	- renamed some fields/variables for clarity
+	- added TYPE_USER comparison type for consistency
+
 0.41 22 Dec 2000
+	- removed 'unbalanced' option from code (it was commented out anyway)
 	- updated and added comments in code
 	- changed tree nodes from hashes to arrays (this speeds up adding
 	  nodes to the tree)

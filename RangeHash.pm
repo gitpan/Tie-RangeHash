@@ -7,22 +7,19 @@ use strict;
 use warnings::register 'Tie::RangeHash';
 use Carp;
 
-our $VERSION   = '0.41';
+our $VERSION   = '0.42';
 our @ISA       = qw( );
-
-# my $VERSION = '0.41';
-# my @ISA = ( );
-# my $SEPARATOR;
-# my $DEBUG   = 0;
 
 use integer;
 
 BEGIN
   {
+
     # Define public constants
 
     *TYPE_STRING = sub () { 1 };        # Indicates value is a string
     *TYPE_NUMBER = sub () { 2 };        # Indicates value is a number
+    *TYPE_USER   = sub () { 3 };        # User defined method to compare values
 
     # Define internal constants
 
@@ -37,6 +34,15 @@ BEGIN
     *COUNT_LEFT  = sub () { 4 };        # Number of children to the left
     *COUNT_RIGHT = sub () { 5 };        # Number of children to the right
     *VALUE       = sub () { 6 };        # Value of the node
+
+    # Object indices. Perhaps this is a moot optimization?
+
+    *ROOT_NODE   = sub () { 0 };        # Root node of the tree
+    *CMP_SUB     = sub () { 1 };        # Comparison subroutine for values
+    *SPLIT_REGEX = sub () { 2 };        # Regexp used to split keys
+    *CMP_TYPE    = sub () { 3 };        # Comparison type (optional)
+    *SPLIT_TEXT  = sub () { 4 };        # Separator text (optional)
+
   }
 
 sub import
@@ -46,7 +52,7 @@ sub import
 
   {
     my $class       = shift;
-    my $version_req = shift;
+    my $version_req = shift || 0;
     if ($version_req gt $VERSION)
       {
 	croak "Using Tie::RangeHash $VERSION when $version_req was requested";
@@ -59,7 +65,7 @@ sub _join_bounds
 
   {
     my ($self, $lower_bound, $upper_bound) = @_;
-    join($self->{SEPARATOR}, $lower_bound, $upper_bound);
+    join($self->[SPLIT_TEXT], $lower_bound, $upper_bound);
   }
 
 sub _split_bounds
@@ -72,10 +78,10 @@ sub _split_bounds
     my ($self, $key) = @_;
 
     my ($lower_bound, $upper_bound, $extra_stuff);
-    if ($key =~ $self->{SPLIT})
+    if ($key =~ $self->[SPLIT_REGEX])
       {
 	($lower_bound, $upper_bound, $extra_stuff) =
-	  split( $self->{SPLIT}, $key );
+	  split( $self->[SPLIT_REGEX], $key );
 
 	if ( (defined($extra_stuff)) and (warnings::enabled) )
 	  {
@@ -83,7 +89,7 @@ sub _split_bounds
 	      "Multiple separators in \`$key\' will be ignored";
 	  }
 
-	if (&{$self->{COMPARE}}($lower_bound, $upper_bound) > 0)
+	if (&{$self->[CMP_SUB]}($lower_bound, $upper_bound) > 0)
 	  # make sure $lower_bound < $upper_bound
 	  {
 	    warnings::warn "Lower and upper bounds reversed",
@@ -98,7 +104,6 @@ sub _split_bounds
 
     return ($lower_bound, $upper_bound);
   }
-
 
 
 sub _new_node
@@ -155,7 +160,7 @@ sub _count_left
   {
     my ($node) = @_;
 
-    $node->[COUNT_LEFT] = ($node->[NODE_LEFT]) ?
+    return $node->[COUNT_LEFT] = ($node->[NODE_LEFT]) ?
       1 + $node->[NODE_LEFT]->[COUNT_LEFT] +
 	$node->[NODE_LEFT]->[COUNT_RIGHT] : 0;
   }
@@ -168,7 +173,7 @@ sub _count_right
   {
     my ($node) = @_;
 
-    $node->[COUNT_RIGHT] = ($node->[NODE_RIGHT]) ?
+    return $node->[COUNT_RIGHT] = ($node->[NODE_RIGHT]) ?
       1 + $node->[NODE_RIGHT]->[COUNT_LEFT] +
 	$node->[NODE_RIGHT]->[COUNT_RIGHT] : 0;
   }
@@ -188,15 +193,15 @@ sub _add_node
       }
     unless ($root) { return $node; }
 
-    if ( &{$self->{COMPARE}}($node->[KEY_HIGH],  $root->[KEY_LOW] ) < 0)
+    if ( &{$self->[CMP_SUB]}($node->[KEY_HIGH],  $root->[KEY_LOW] ) < 0)
       {
 	$root->[NODE_LEFT] = $self->_add_node( $root->[NODE_LEFT], $node );
-	_count_left( $root );
+	$root->[COUNT_LEFT]++;  # _count_left( $root );
       }
-    elsif (&{$self->{COMPARE}}($node->[KEY_LOW], $root->[KEY_HIGH]) > 0)
+    elsif (&{$self->[CMP_SUB]}($node->[KEY_LOW], $root->[KEY_HIGH]) > 0)
       {
-	$root->[NODE_RIGHT]  = $self->_add_node( $root->[NODE_RIGHT], $node );
-	_count_right( $root );
+	$root->[NODE_RIGHT] = $self->_add_node( $root->[NODE_RIGHT], $node );
+	$root->[COUNT_RIGHT]++; # _count_right( $root );
       }
     else
       {
@@ -253,8 +258,8 @@ sub _add_new_node
     my ($self, $lower_bound, $upper_bound, $value) = @_;
     # Caveats: assumes $lower_bound < $upper_bound!
 
-    $self->{ROOT} = $self->_add_node(
-        $self->{ROOT},
+    $self->[ROOT_NODE] = $self->_add_node(
+        $self->[ROOT_NODE],
         $self->_new_node( $lower_bound, $upper_bound, $value )
     );
   }
@@ -281,12 +286,12 @@ sub _find_node_parent
 
     unless ($root) { return; }
 
-    if (&{$self->{COMPARE}}($upper_bound, $root->[KEY_LOW])<0)
+    if (&{$self->[CMP_SUB]}($upper_bound, $root->[KEY_LOW])<0)
       {
 	return _find_node_parent($self, $root->[NODE_LEFT], $root,
 			  $lower_bound, $upper_bound);
       }
-    elsif (&{$self->{COMPARE}}($lower_bound, $root->[KEY_HIGH])>0)
+    elsif (&{$self->[CMP_SUB]}($lower_bound, $root->[KEY_HIGH])>0)
       {
 	return _find_node_parent($self, $root->[NODE_RIGHT], $root,
 			  $lower_bound, $upper_bound);
@@ -298,10 +303,10 @@ sub _find_node_parent
 	# for range overlaps is negligible compared to the advantage of having
 	# a warning reported
 
-	if ((&{$self->{COMPARE}}($lower_bound, $upper_bound))
+	if ((&{$self->[CMP_SUB]}($lower_bound, $upper_bound))
 	  and (
-	       (&{$self->{COMPARE}}($lower_bound, $root->[KEY_LOW]) < 0)
-	       or (&{$self->{COMPARE}}($upper_bound, $root->[KEY_HIGH]) > 0)
+	       (&{$self->[CMP_SUB]}($lower_bound, $root->[KEY_LOW]) < 0)
+	       or (&{$self->[CMP_SUB]}($upper_bound, $root->[KEY_HIGH]) > 0)
 	      ) )
 	  {
 	    warnings::warn
@@ -402,25 +407,25 @@ sub TIEHASH
        }
     );
 
-    my $self = {
-	ROOT      => undef,             # root note reference
-        SPLIT     => @args[0],          # the Regexp used to split
-        SEPARATOR => SEPARATOR,        # string representation of separator
-        TYPE      => @args[1],          # the value type
-        COMPARE   => @args[2],          # the compairson routine
-    };
+    my $self = [
+       undef,      # ROOT_NODE
+       @args[2],   # CMP_SUB
+       @args[0],   # SPLIT_REGEX
+       @args[1],   # CMP_TYPE
+       &SEPARATOR, # SPLIT_TEXT
+    ];
 
-    my $split_ref = ref($self->{SPLIT});
-    if ($split_ref eq "")
+    my $split_ref = ref($self->[SPLIT_REGEX]);
+    if ($split_ref eq "") # scalar (string)?
       {
 	# escape Regexp special characters
-	$self->{SEPARATOR} = $self->{SPLIT};
-	$self->{SPLIT}     =~ s/([\.\?\*\+\{\}\[\]\(\)\\\=\$\^])/\\$1/g;
-	$self->{SPLIT}     = qr/$self->{SPLIT}/o;
+	$self->[SPLIT_TEXT]  = $self->[SPLIT_REGEX];
+	$self->[SPLIT_REGEX] =~ s/([\.\?\*\+\{\}\[\]\(\)\\\=\$\^])/\\$1/g;
+	$self->[SPLIT_REGEX] = qr/$self->[SPLIT_REGEX]/o;
       }
     elsif ($split_ref eq "Regexp")
       {
-	$self->{SEPARATOR} = SEPARATOR; # so we have at least something! 
+	$self->[SPLIT_TEXT] = &SEPARATOR; # so we have at least something! 
       }
     else
       {
@@ -428,27 +433,28 @@ sub TIEHASH
 	  "\`Separator\' attribute must be a SCALAR or Regexp";
       }
 
-    if (defined($self->{COMPARE}))
+    if (defined($self->[CMP_SUB]) or ($self->[CMP_TYPE] == TYPE_USER))
       {
-	if (ref($self->{COMPARE}) ne "CODE")
+	if (ref($self->[CMP_SUB]) ne "CODE")
 	  {
 	    croak
 	      "\`Comparison\' must be a CODE reference";
 	  }
+	$self->[CMP_TYPE] = TYPE_USER;
       }
     else
       {
-	if ($self->{TYPE} == TYPE_NUMBER)
+	if ($self->[CMP_TYPE] == TYPE_NUMBER)
 	  {
-	    $self->{COMPARE} = sub { ($_[0] <=> $_[1]); };
+	    $self->[CMP_SUB] = sub { ($_[0] <=> $_[1]); };
 	  }
-	elsif ($self->{TYPE} == TYPE_STRING)
+	elsif ($self->[CMP_TYPE] == TYPE_STRING)
 	  {
-	    $self->{COMPARE} = sub { ($_[0] cmp $_[1]); };
+	    $self->[CMP_SUB] = sub { ($_[0] cmp $_[1]); };
 	  }
 	else
 	  {
-	    die "Unknown comparison Type";
+	    croak "Unknown comparison Type";
 	  }
       }
 
@@ -477,7 +483,7 @@ sub FETCH
     # are different it will check if the bounds are out of the node's
     # range.)
 
-    my $node = ( _find_node_parent($self, $self->{ROOT}, undef,
+    my $node = ( _find_node_parent($self, $self->[ROOT_NODE], undef,
 				   _split_bounds($self, $key)) )[0];
     return ($node) ? $node->[VALUE] : undef;
   }
@@ -488,7 +494,7 @@ sub EXISTS
 
   {
     my ($self, $key) = @_;
-    my $node = ( _find_node_parent($self, $self->{ROOT}, undef,
+    my $node = ( _find_node_parent($self, $self->[ROOT_NODE], undef,
 				   _split_bounds($self, $key)) )[0];
     return (defined($node));
   }
@@ -508,7 +514,7 @@ sub CLEAR
 
   {
     my ($self) = @_;
-    $self->{ROOT} = undef;
+    $self->[ROOT_NODE] = undef;
   }
 
 sub DELETE
@@ -520,15 +526,15 @@ sub DELETE
 
     my ($lower_bound, $upper_bound) = _split_bounds($self, $key);
     my ($node, $parent) =
-      _find_node_parent($self, $self->{ROOT}, undef,
+      _find_node_parent($self, $self->[ROOT_NODE], undef,
 			$lower_bound, $upper_bound);
 
     # Caveat: if $parent is not the parent of $node, you've got a problem!
 
     unless ($node) { return; } # if node not found, nothing to delete
 
-    if ((&{$self->{COMPARE}}($lower_bound, $node->[KEY_LOW])) or
-	(&{$self->{COMPARE}}($upper_bound, $node->[KEY_HIGH])))
+    if ((&{$self->[CMP_SUB]}($lower_bound, $node->[KEY_LOW])) or
+	(&{$self->[CMP_SUB]}($upper_bound, $node->[KEY_HIGH])))
       {
 	warnings::warn 
 	  ("Key range \`" .
@@ -542,7 +548,7 @@ sub DELETE
 
     if ($parent)
       {
-	if (&{$self->{COMPARE}}($parent->[KEY_HIGH], $node->[KEY_LOW])<0)
+	if (&{$self->[CMP_SUB]}($parent->[KEY_HIGH], $node->[KEY_LOW])<0)
 	  {
 
 	    $parent->[NODE_RIGHT] = $node->[NODE_RIGHT];
@@ -551,7 +557,7 @@ sub DELETE
 	      _add_node($self, $parent->[NODE_RIGHT], $node->[NODE_LEFT]),
 	        if ($node->[NODE_LEFT]);
 	      }
-	elsif (&{$self->{COMPARE}}($parent->[KEY_LOW],
+	elsif (&{$self->[CMP_SUB]}($parent->[KEY_LOW],
 				   $node->[KEY_HIGH])>0)
 	  {
 
@@ -564,8 +570,9 @@ sub DELETE
       }
     else
       {	
-	$self->{ROOT} = $node->[NODE_LEFT];
-	$self->{ROOT} = _add_node($self, $self->{ROOT}, $node->[NODE_RIGHT]),
+	$self->[ROOT_NODE] = $node->[NODE_LEFT];
+	$self->[ROOT_NODE] = _add_node($self, $self->[ROOT_NODE],
+				       $node->[NODE_RIGHT]),
 	  if ($node->[NODE_RIGHT]);
       }
     return $node->[VALUE];
@@ -601,7 +608,7 @@ Installation is pretty standard:
 
   use Tie::RangeHash;
 
-  tie %hash, Tie::RangeHash;
+  tie %hash, 'Tie::RangeHash';
 
   $hash{'A,C'} = 1;
   $hash{'D,F'} = 2;
@@ -697,16 +704,22 @@ appears to work, but has not been fully tested.
 A future version of this module may use an improved binary-tree algorithm.
 Or it may use something else.
 
-This module is incomplete for a Tied Hash: it has no FIRSTKEY or NEXTKEY
+This module is incomplete for a tied hash: it has no FIRSTKEY or NEXTKEY
 methods (pending my figuring out a good way to implement them).
 
 =head1 AUTHOR
 
 Robert Rothenberg <rrwo@cpan.org>
 
+=head2 Acknowledgements
+
+Sam Tregar <sam@tregar.com> for optimization suggestions.
+
+Various Perl Monks <http://www.perlmonks.org> for advice and code snippets.
+
 =head1 LICENSE
 
-Copyright (c) 2000 Robert Rothenberg. All rights reserved.
+Copyright (c) 2000-2001 Robert Rothenberg. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
