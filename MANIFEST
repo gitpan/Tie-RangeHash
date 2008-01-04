@@ -1,11 +1,7 @@
-Build.PL
 Changes
 Makefile.PL
 MANIFEST
-META.yml
-lib/Tie/RangeHash.pm
 README
-SIGNATURE
-t/01-tie.t
-t/02-object.t
-SIGNATURE    Added here by Module::Build
+t/Tie-RangeHash.t
+lib/Tie/RangeHash.pm
+META.yml                                 Module meta-data (added by MakeMaker)
