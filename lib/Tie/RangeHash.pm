@@ -179,7 +179,7 @@ use Carp;
 # no Carp::Assert;
 use Algorithm::SkipList 1.02;
 
-our $VERSION   = '1.03';
+our $VERSION   = '1.04';
 # $VERSION = eval $VERSION;
 
 use constant TYPE_STRING => 'Algorithm::SkipList::StringRangeNode';
@@ -636,7 +636,7 @@ L<http://rt.cpan.org> to submit bug reports.
 
 =head1 LICENSE
 
-Copyright (C) 2000-2005 Robert Rothenberg. All rights reserved.
+Copyright (C) 2000-2008 Robert Rothenberg. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 

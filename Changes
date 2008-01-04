@@ -1,6 +1,10 @@
 Revision history for Perl extension Tie::RangeHash.  (Note: significant
 changes marked with '*' may not be compatible with previous versions.)
 
+1.04   Fri Jan  4 2008
+	- re-uploaded version accidentally deleted from CPAN
+	- minor changes to Build.PL
+
 1.03   Wed Jan  4 2005
 	- redid POD, corrected typos
 	- added fetch_overlap to fetch overlapping ranges

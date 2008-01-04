@@ -5,9 +5,11 @@ my $build = Module::Build->new
      module_name => 'Tie::RangeHash',
      license => 'perl',
      requires => {
-       'perl'                       => '5.6.1',
+       'perl'                       => '5.006',
        'base'                       => 0,
        'Algorithm::SkipList'        => 1.02,
+     },
+     build_requires => {
        'Test::More'                 => 0,
      },
      recommends => {

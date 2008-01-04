@@ -2,14 +2,15 @@
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
+          'PL_FILES' => {},
+          'INSTALLDIRS' => 'site',
           'NAME' => 'Tie::RangeHash',
+          'EXE_FILES' => [],
           'VERSION_FROM' => 'lib/Tie/RangeHash.pm',
           'PREREQ_PM' => {
-                           'Algorithm::SkipList' => '1.02',
-                           'Test::More' => '0',
-                           'base' => '0'
-                         },
-          'INSTALLDIRS' => 'site',
-          'PL_FILES' => {}
+                           'base' => 0,
+                           'Test::More' => 0,
+                           'Algorithm::SkipList' => '1.02'
+                         }
         )
 ;
